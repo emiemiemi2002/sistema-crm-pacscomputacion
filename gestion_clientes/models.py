@@ -3,7 +3,7 @@ from django.db import models
 class Cliente(models.Model):
     """Almacena la información completa de los clientes."""
     # No es necesario id_cliente, Django lo crea automáticamente como 'id' (AutoField PK)
-    nombre_completo = models.CharField(max_length=255, verbose_name="Nombre Completo")
+    nombre_completo = models.CharField(max_length=255, verbose_name="Nombre completo")
     telefono = models.CharField(max_length=20, unique=True)
     email = models.EmailField(max_length=254, unique=True, blank=True, null=True)
     rfc = models.CharField(max_length=13, blank=True, null=True, verbose_name="RFC")
@@ -14,7 +14,7 @@ class Cliente(models.Model):
     codigo_postal = models.CharField(max_length=10, blank=True, null=True, verbose_name="Código Postal") # Ajustado max_length
     ciudad = models.CharField(max_length=100, blank=True, null=True)
     estado = models.CharField(max_length=100, blank=True, null=True)
-    fecha_registro = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de Registro")
+    fecha_registro = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de registro")
 
     class Meta:
         verbose_name = "Cliente"
@@ -27,13 +27,28 @@ class Cliente(models.Model):
 
 class Equipo(models.Model):
     """Representa un equipo físico perteneciente a un cliente."""
+
+    # Opciones para el campo 'tipo_equipo'
+    TIPO_EQUIPO_LAPTOP = 'Laptop'
+    TIPO_EQUIPO_ESCRITORIO = 'Computadora de escritorio'
+    TIPO_EQUIPO_IMPRESORA = 'Impresora'
+    TIPO_EQUIPO_PROYECTOR = 'Proyector'
+    TIPO_EQUIPO_COMPONENTE = 'Componente de computadora'
+    TIPO_EQUIPO_OPCIONES = [
+        (TIPO_EQUIPO_LAPTOP, 'Laptop'),
+        (TIPO_EQUIPO_ESCRITORIO, 'Computadora de escritorio'),
+        (TIPO_EQUIPO_IMPRESORA, 'Impresora'),
+        (TIPO_EQUIPO_PROYECTOR, 'Proyector'),
+        (TIPO_EQUIPO_COMPONENTE, 'Componente de computadora'),
+    ]
+
     # No es necesario id_equipo, Django lo crea automáticamente como 'id' (AutoField PK)
     # on_delete=models.CASCADE: Si se borra un cliente, se borran sus equipos.
     cliente = models.ForeignKey(Cliente, on_delete=models.CASCADE, related_name="equipos")
-    tipo_equipo = models.CharField(max_length=100, verbose_name="Tipo de Equipo", help_text="Ej. Laptop, Impresora, Proyector")
+    tipo_equipo = models.CharField(max_length=100, verbose_name="Tipo de equipo", choices=TIPO_EQUIPO_OPCIONES, help_text="Ej. Laptop, Impresora, Proyector")
     marca = models.CharField(max_length=100)
     modelo = models.CharField(max_length=100)
-    numero_serie = models.CharField(max_length=100, blank=True, null=True, verbose_name="Número de Serie")
+    numero_serie = models.CharField(max_length=100, blank=True, null=True, verbose_name="Número de serie")
 
     class Meta:
         verbose_name = "Equipo"

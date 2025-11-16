@@ -8,19 +8,19 @@ class OrdenServicio(models.Model):
     """La tabla central que representa una orden de servicio."""
     # Opciones para el campo 'estado'
     ESTADO_NUEVA = 'Nueva'
-    ESTADO_DIAGNOSTICO = 'En Diagnóstico'
-    ESTADO_ESPERANDO_AUTORIZACION = 'Esperando Autorización'
-    ESTADO_ESPERANDO_REFACCION = 'Esperando Refacción'
-    ESTADO_EN_REPARACION = 'En Reparación'
+    ESTADO_DIAGNOSTICO = 'En diagnóstico'
+    ESTADO_ESPERANDO_AUTORIZACION = 'Esperando autorización'
+    ESTADO_ESPERANDO_REFACCION = 'Esperando refacción'
+    ESTADO_EN_REPARACION = 'En reparación'
     ESTADO_FINALIZADA_TECNICO = 'Finalizada por Técnico'
     ESTADO_ENTREGADA = 'Entregada'
     ESTADO_CANCELADA = 'Cancelada'
     ESTADO_OPCIONES = [
         (ESTADO_NUEVA, 'Nueva'),
-        (ESTADO_DIAGNOSTICO, 'En Diagnóstico'),
-        (ESTADO_ESPERANDO_AUTORIZACION, 'Esperando Autorización'),
-        (ESTADO_ESPERANDO_REFACCION, 'Esperando Refacción'),
-        (ESTADO_EN_REPARACION, 'En Reparación'),
+        (ESTADO_DIAGNOSTICO, 'En diagnóstico'),
+        (ESTADO_ESPERANDO_AUTORIZACION, 'Esperando autorización'),
+        (ESTADO_ESPERANDO_REFACCION, 'Esperando refacción'),
+        (ESTADO_EN_REPARACION, 'En reparación'),
         (ESTADO_FINALIZADA_TECNICO, 'Finalizada por Técnico'),
         (ESTADO_ENTREGADA, 'Entregada'),
         (ESTADO_CANCELADA, 'Cancelada'),
@@ -36,7 +36,7 @@ class OrdenServicio(models.Model):
         (PRIORIDAD_ALTA, 'Alta'),
     ]
 
-    # No es necesario id_orden, Django lo crea automáticamente como 'id' (AutoField PK) que funcionará como Folio
+    # No es necesario id_orden, Django lo crea automáticamente como 'id' (AutoField PK) que funcionará como folio
     # on_delete=models.PROTECT: Evita borrar un cliente/equipo si tiene órdenes asociadas.
     cliente = models.ForeignKey(Cliente, on_delete=models.PROTECT, related_name="ordenes")
     equipo = models.ForeignKey(Equipo, on_delete=models.PROTECT, related_name="ordenes")
@@ -48,7 +48,7 @@ class OrdenServicio(models.Model):
         on_delete=models.SET_NULL,
         null=True,
         related_name="ordenes_recibidas",
-        verbose_name="Asistente que Recibió"
+        verbose_name="Asistente que recibió"
     )
     tecnico_asignado = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -56,22 +56,22 @@ class OrdenServicio(models.Model):
         null=True,
         blank=True, # Puede no asignarse de inmediato
         related_name="ordenes_asignadas",
-        verbose_name="Técnico Asignado"
+        verbose_name="Técnico asignado"
     )
     # ManyToManyField para asociar múltiples servicios a una orden
     servicios = models.ManyToManyField(
         TipoServicio,
         blank=True, # Puede que no se aplique un servicio del catálogo
         related_name="ordenes",
-        verbose_name="Servicios Aplicados"
+        verbose_name="Servicios aplicados"
     )
 
-    descripcion_falla = models.TextField(verbose_name="Descripción de la Falla")
-    contrasena_equipo = models.CharField(max_length=255, blank=True, null=True, verbose_name="Contraseña del Equipo (Encriptada)") # Recordar encriptar/desencriptar en las vistas
+    descripcion_falla = models.TextField(verbose_name="Descripción de la falla")
+    contrasena_equipo = models.CharField(max_length=255, blank=True, null=True, verbose_name="Contraseña del equipo (Encriptada)") # Recordar encriptar/desencriptar en las vistas <-------------------
     estado = models.CharField(max_length=50, choices=ESTADO_OPCIONES, default=ESTADO_NUEVA)
     prioridad = models.CharField(max_length=20, choices=PRIORIDAD_OPCIONES, default=PRIORIDAD_NORMAL)
-    fecha_creacion = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de Creación")
-    fecha_cierre = models.DateTimeField(blank=True, null=True, verbose_name="Fecha de Cierre")
+    fecha_creacion = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de creación")
+    fecha_cierre = models.DateTimeField(blank=True, null=True, verbose_name="Fecha de cierre")
 
     class Meta:
         verbose_name = "Orden de Servicio"
@@ -99,19 +99,19 @@ class Cotizacion(models.Model):
     ]
 
     # Opciones Fuente Refacción
-    FUENTE_STOCK = 'Stock Interno'
-    FUENTE_PROVEEDOR = 'Pedido a Proveedor'
+    FUENTE_STOCK = 'Stock interno'
+    FUENTE_PROVEEDOR = 'Pedido a proveedor'
     FUENTE_REFACCION = [
-        (FUENTE_STOCK, 'Stock Interno'),
-        (FUENTE_PROVEEDOR, 'Pedido a Proveedor'),
+        (FUENTE_STOCK, 'Stock interno'),
+        (FUENTE_PROVEEDOR, 'Pedido a proveedor'),
     ]
 
     # Opciones Tipo Cotización
-    TIPO_REFACCION_INTERNA = 'Refacción Interna'
-    TIPO_PROYECTO_VENTA = 'Proyecto Venta'
+    TIPO_COTIZACION_INTERNA = 'Cotización interna'
+    TIPO_COTIZACION_EXTERNA = 'Cotización externa'
     TIPO_COTIZACION = [
-        (TIPO_REFACCION_INTERNA, 'Refacción Interna (Recepción)'),
-        (TIPO_PROYECTO_VENTA, 'Proyecto/Venta (Ventas)'),
+        (TIPO_COTIZACION_INTERNA, 'Cotización interna (Recepción)'),
+        (TIPO_COTIZACION_EXTERNA, 'Cotización externa (Ventas)'),
     ]
 
     # No es necesario id_cotizacion, Django lo crea automáticamente como 'id' (AutoField PK)
@@ -123,9 +123,9 @@ class Cotizacion(models.Model):
     costo_refacciones = models.DecimalField(max_digits=10, decimal_places=2, default=0.0)
     costo_mano_obra = models.DecimalField(max_digits=10, decimal_places=2, default=0.0)
     estado = models.CharField(max_length=50, choices=ESTADO_COTIZACION, default=ESTADO_PENDIENTE)
-    fuente_refaccion = models.CharField(max_length=50, choices=FUENTE_REFACCION, blank=True, null=True, verbose_name="Fuente de la Refacción")
-    tipo_cotizacion = models.CharField(max_length=50, choices=TIPO_COTIZACION, default=TIPO_REFACCION_INTERNA, verbose_name="Tipo de Cotización")
-    fecha_creacion = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de Creación") # Añadido para mejor seguimiento
+    fuente_refaccion = models.CharField(max_length=50, choices=FUENTE_REFACCION, blank=True, null=True, verbose_name="Fuente de la refacción")
+    tipo_cotizacion = models.CharField(max_length=50, choices=TIPO_COTIZACION, default=TIPO_COTIZACION_INTERNA, verbose_name="Tipo de cotización")
+    fecha_creacion = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de creación") # Añadido para mejor seguimiento
     notas = models.TextField(blank=True, null=True, verbose_name="Notas/Observaciones") # Añadido para mejor seguimiento
 
     class Meta:
@@ -150,17 +150,17 @@ class Transferencia(models.Model):
         on_delete=models.SET_NULL,
         null=True,
         related_name="transferencias_solicitadas",
-        verbose_name="Usuario Solicitante"
+        verbose_name="Usuario solicitante"
     )
     usuario_autoriza = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
         null=True,
         related_name="transferencias_autorizadas",
-        verbose_name="Usuario que Autoriza"
+        verbose_name="Usuario que autoriza"
     )
-    documento_referencia = models.CharField(max_length=100, blank=True, null=True, verbose_name="Documento de Referencia")
-    fecha_transferencia = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de Transferencia")
+    documento_referencia = models.CharField(max_length=100, blank=True, null=True, verbose_name="Documento de referencia")
+    fecha_transferencia = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de transferencia")
     notas = models.TextField(blank=True, null=True)
 
     class Meta:
@@ -176,9 +176,9 @@ class ItemTransferido(models.Model):
     """Detalla cada uno de los artículos incluidos en una transferencia."""
     # No es necesario id_item, Django lo crea automáticamente como 'id' (AutoField PK)
     transferencia = models.ForeignKey(Transferencia, on_delete=models.CASCADE, related_name="items")
-    descripcion_item = models.CharField(max_length=255, verbose_name="Descripción del Ítem")
+    descripcion_item = models.CharField(max_length=255, verbose_name="Descripción del ítem")
     modelo = models.CharField(max_length=100, blank=True, null=True)
-    numero_serie = models.CharField(max_length=100, blank=True, null=True, verbose_name="Número de Serie")
+    numero_serie = models.CharField(max_length=100, blank=True, null=True, verbose_name="Número de serie")
     cantidad = models.PositiveIntegerField(default=1) # Usar PositiveIntegerField para cantidades
 
     class Meta:
