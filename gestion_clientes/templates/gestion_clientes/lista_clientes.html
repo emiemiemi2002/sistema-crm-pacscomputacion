@@ -1,0 +1,110 @@
+{% extends 'base.html' %}
+
+{% block title %}Clientes - CRM PACS{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Estilos específicos de esta vista (UI-CLI-01) */
+    .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; flex-wrap: wrap; gap: 1rem; }
+    .page-title { font-size: 2rem; font-weight: 700; color: var(--color-primario); }
+    
+    /* Barra de búsqueda y Filtros */
+    .filters-bar { display: flex; gap: 1rem; margin-bottom: 1.5rem; width: 100%; }
+    .search-container { position: relative; flex-grow: 1; max-width: 400px; }
+    .search-container input { width: 100%; padding: 0.75rem 1rem 0.75rem 2.5rem; border-radius: 8px; border: 1px solid var(--color-borde); }
+    .search-icon-input { position: absolute; left: 0.75rem; top: 50%; transform: translateY(-50%); width: 18px; color: #888; }
+
+    /* Tabla */
+    .table-card { background: var(--color-fondo-card); border: 1px solid var(--color-borde); border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.04); }
+    .table-responsive { overflow-x: auto; }
+    .data-table { width: 100%; border-collapse: collapse; }
+    .data-table thead { background-color: var(--color-fondo); }
+    .data-table th { padding: 1rem 1.25rem; text-align: left; font-size: 0.85rem; font-weight: 600; color: var(--color-texto-secundario); text-transform: uppercase; border-bottom: 2px solid var(--color-borde); }
+    .data-table td { padding: 1.25rem; font-size: 0.95rem; border-bottom: 1px solid var(--color-borde); white-space: nowrap; }
+    .data-table tr:last-child td { border-bottom: none; }
+    .data-table tr:hover { background-color: #fcfcff; }
+    
+    .client-link { color: var(--color-enlace); text-decoration: none; font-weight: 600; }
+    .client-link:hover { text-decoration: underline; }
+    
+    /* Paginación */
+    .pagination { display: flex; justify-content: space-between; align-items: center; padding: 1.5rem; border-top: 1px solid var(--color-borde); }
+    .pag-btn { padding: 0.5rem 1rem; border: 1px solid var(--color-borde); background: white; border-radius: 6px; text-decoration: none; color: var(--color-texto-principal); font-size: 0.9rem; }
+    .pag-btn:hover { background: var(--color-fondo); }
+    .pag-info { color: var(--color-texto-secundario); font-size: 0.9rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+    <div class="page-header">
+        <h1 class="page-title">Clientes</h1>
+        <a href="#" class="btn btn-action">
+            <svg style="width:20px;height:20px" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+            Crear Nuevo Cliente
+        </a>
+    </div>
+
+    <!-- Formulario de Búsqueda -->
+    <form method="GET" class="filters-bar">
+        <div class="search-container">
+            <svg class="search-icon-input" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+            <input type="text" name="q" value="{{ query|default:'' }}" placeholder="Buscar por nombre, teléfono o RFC...">
+        </div>
+        <button type="submit" class="btn btn-primary">Buscar</button>
+    </form>
+
+    <div class="table-card">
+        <div class="table-responsive">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Nombre Completo</th>
+                        <th>Teléfono</th>
+                        <th>Email</th>
+                        <th>RFC</th>
+                        <th>Fecha Registro</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for cliente in page_obj %}
+                    <tr>
+                        <td>
+                            <a href="{% url 'detalle_cliente' cliente.id %}" class="client-link">{{ cliente.nombre_completo }}</a>
+                        </td>
+                        <td>{{ cliente.telefono }}</td>
+                        <td>{{ cliente.email|default:"--" }}</td>
+                        <td>{{ cliente.rfc|default:"--" }}</td>
+                        <td>{{ cliente.fecha_registro|date:"d M Y" }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" style="text-align: center; padding: 2rem; color: #777;">
+                            No se encontraron clientes registrados.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Paginación -->
+        {% if page_obj.has_other_pages %}
+        <div class="pagination">
+            <div class="pag-info">
+                Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}
+            </div>
+            <div>
+                {% if page_obj.has_previous %}
+                    <a href="?page={{ page_obj.previous_page_number }}{% if query %}&q={{ query }}{% endif %}" class="pag-btn">&laquo; Anterior</a>
+                {% endif %}
+                
+                {% if page_obj.has_next %}
+                    <a href="?page={{ page_obj.next_page_number }}{% if query %}&q={{ query }}{% endif %}" class="pag-btn">Siguiente &raquo;</a>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+{% endblock %}

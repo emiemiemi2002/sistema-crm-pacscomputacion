@@ -1,0 +1,207 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}CRM PACS{% endblock %}</title>
+    <!-- Fuente Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        /* --- ESTILOS GLOBALES (Copiados del Prototipo UI-NAV-01) --- */
+        :root {
+            --color-primario: #021d48;
+            --color-acento-verde: #c2d400;
+            --color-acento-amarillo: #fedb00;
+            --color-fondo: #f4f7f6;
+            --color-fondo-card: #ffffff;
+            --color-texto-principal: #333333;
+            --color-texto-secundario: #555;
+            --color-texto-claro: #f1f1f1;
+            --color-borde: #e0e0e0;
+            --color-enlace: var(--color-primario);
+            --color-input-bg: #f9fafb;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--color-fondo);
+            color: var(--color-texto-principal);
+            display: grid;
+            grid-template-areas: "sidebar navbar" "sidebar main" "sidebar footer";
+            grid-template-columns: 260px 1fr;
+            grid-template-rows: auto 1fr auto;
+            min-height: 100vh;
+            transition: grid-template-columns 0.3s ease;
+        }
+
+        /* --- SIDEBAR --- */
+        .sidebar {
+            grid-area: sidebar;
+            background-color: var(--color-primario);
+            color: var(--color-texto-claro);
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            position: fixed;
+            left: 0; top: 0; bottom: 0; width: 260px; z-index: 1000;
+        }
+        .sidebar-header { padding-bottom: 1.5rem; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 2rem; }
+        .sidebar-header .logo { width: 150px; height: auto; filter: invert(1) brightness(2); }
+        .sidebar-nav ul { list-style: none; }
+        .sidebar-nav li { margin-bottom: 0.5rem; }
+        .sidebar-nav a {
+            display: flex; align-items: center; gap: 1rem; padding: 1rem;
+            border-radius: 8px; text-decoration: none; color: var(--color-texto-claro);
+            font-weight: 500; transition: background 0.2s;
+        }
+        .sidebar-nav a:hover { background-color: rgba(255,255,255,0.1); }
+        .sidebar-nav a.active { background-color: var(--color-acento-verde); color: var(--color-primario); font-weight: 700; }
+        .sidebar-nav a.active svg { color: var(--color-primario); opacity: 1; }
+        .nav-icon { width: 22px; height: 22px; opacity: 0.9; }
+
+        /* --- NAVBAR --- */
+        .navbar {
+            grid-area: navbar;
+            background-color: var(--color-fondo-card);
+            border-bottom: 1px solid var(--color-borde);
+            padding: 0 2rem;
+            height: 70px;
+            display: flex; align-items: center; justify-content: space-between;
+            position: sticky; top: 0; z-index: 900;
+        }
+        .navbar-search { position: relative; width: 50%; max-width: 500px; }
+        .navbar-search input {
+            width: 100%; padding: 0.75rem 1rem 0.75rem 2.5rem;
+            border-radius: 8px; border: 1px solid var(--color-borde); background-color: var(--color-input-bg);
+        }
+        .search-icon { position: absolute; left: 0.75rem; top: 50%; transform: translateY(-50%); width: 20px; color: #888; }
+        
+        .navbar-user-area { display: flex; align-items: center; gap: 1.5rem; }
+        .user-profile { display: flex; align-items: center; gap: 0.75rem; cursor: pointer; }
+        .user-profile img { width: 40px; height: 40px; border-radius: 50%; background: #ccc; }
+        .user-profile .user-name { font-weight: 600; font-size: 0.9rem; color: var(--color-primario); }
+        .mobile-menu-toggle { display: none; background: none; border: none; cursor: pointer; }
+
+        /* --- CONTENIDO PRINCIPAL --- */
+        .main-content {
+            grid-area: main;
+            padding: 2.5rem;
+            overflow-y: auto;
+            padding-top: calc(70px + 2.5rem); /* Compensar navbar sticky */
+        }
+
+        /* --- FOOTER --- */
+        .footer {
+            grid-area: footer;
+            background-color: var(--color-fondo-card);
+            border-top: 1px solid var(--color-borde);
+            padding: 1.5rem 2.5rem;
+            display: flex; justify-content: space-between; align-items: center;
+            font-size: 0.85rem; color: #777;
+        }
+
+        /* --- CLASES UTILITARIAS COMUNES --- */
+        .btn { display: inline-flex; align-items: center; justify-content: center; padding: 0.75rem 1.5rem; border-radius: 8px; font-weight: 700; text-decoration: none; border: none; cursor: pointer; gap: 0.5rem; transition: all 0.2s; font-size: 0.95rem; }
+        .btn-primary { background-color: var(--color-primario); color: white; }
+        .btn-action { background-color: var(--color-acento-verde); color: var(--color-primario); }
+        .btn-action:hover { background-color: #a9b800; transform: scale(1.02); }
+        
+        /* --- RESPONSIVE --- */
+        @media (max-width: 768px) {
+            body { grid-template-areas: "navbar" "main" "footer"; grid-template-columns: 1fr; }
+            .sidebar { transform: translateX(-100%); transition: transform 0.3s; }
+            body.sidebar-open .sidebar { transform: translateX(0); }
+            .navbar-search { display: none; }
+            .mobile-menu-toggle { display: block; }
+            .main-content { padding: 1.5rem; padding-top: calc(70px + 1.5rem); }
+            .footer { flex-direction: column; gap: 1rem; text-align: center; }
+        }
+
+        {% block extra_css %}{% endblock %}
+    </style>
+</head>
+<body>
+
+    <!-- MENÚ LATERAL -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <!-- Placeholder para el logo, idealmente usarías {% static 'img/logo.png' %} -->
+            <h2 style="color: white;">PACS CRM</h2>
+        </div>
+        <nav class="sidebar-nav">
+            <ul>
+                <!-- La clase 'active' se aplicará condicionalmente -->
+                <li>
+                    <a href="#" class="{% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
+                        <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path></svg>
+                        <span>Dashboard</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="#" class="{% if 'ordenes' in request.path %}active{% endif %}">
+                        <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path></svg>
+                        <span>Órdenes de Servicio</span>
+                    </a>
+                </li>
+                <li>
+                    <!-- Enlace dinámico a la lista de clientes -->
+                    <a href="{% url 'lista_clientes' %}" class="{% if 'clientes' in request.path %}active{% endif %}">
+                        <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+                        <span>Clientes</span>
+                    </a>
+                </li>
+                <!-- Agrega los demás enlaces aquí (Reportes, Catálogos) -->
+            </ul>
+        </nav>
+    </aside>
+
+    <!-- BARRA SUPERIOR -->
+    <header class="navbar">
+        <button class="mobile-menu-toggle" id="mobile-menu-toggle">
+            <svg style="width:24px;height:24px;color:var(--color-primario)" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+        </button>
+        
+        <!-- Búsqueda Global (Placeholder) -->
+        <div class="navbar-search">
+            <svg class="search-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+            <input type="text" placeholder="Búsqueda global (Folio, Cliente, Serie)...">
+        </div>
+
+        <div class="navbar-user-area">
+            <div class="user-profile">
+                <!-- Mostrar nombre del usuario logueado -->
+                <span class="user-name">{{ user.get_full_name|default:user.username }}</span>
+                <div style="width:40px;height:40px;background:#ccc;border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-weight:bold;">
+                    {{ user.username|slice:":1"|upper }}
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- CONTENIDO PRINCIPAL -->
+    <main class="main-content">
+        {% block content %}
+        <!-- El contenido de cada página se inyectará aquí -->
+        {% endblock %}
+    </main>
+
+    <!-- FOOTER -->
+    <footer class="footer">
+        <div>© 2025 PACS Computación S.A. de C.V. | Sistema CRM v1.0</div>
+        <div><a href="#" style="color:var(--color-primario);text-decoration:none;">Manual de Usuario</a></div>
+    </footer>
+
+    <script>
+        document.getElementById('mobile-menu-toggle').addEventListener('click', function() {
+            document.body.classList.toggle('sidebar-open');
+        });
+    </script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

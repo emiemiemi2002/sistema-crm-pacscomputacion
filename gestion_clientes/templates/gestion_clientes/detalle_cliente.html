@@ -1,0 +1,232 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ cliente.nombre_completo }} - CRM PACS{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Estilos específicos de UI-CLI-02 */
+    .main-content-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 2rem; flex-wrap: wrap; gap: 1rem; }
+    .header-title-group h1 { font-size: 2rem; font-weight: 700; color: var(--color-primario); margin-bottom: 0.25rem; }
+    .subtitle { font-size: 0.9rem; font-weight: 500; color: var(--color-texto-secundario); }
+    
+    .header-actions { display: flex; gap: 1rem; }
+    
+    /* Panel de Info */
+    .client-info-panel {
+        background-color: var(--color-fondo-card); border: 1px solid var(--color-borde);
+        border-radius: 12px; padding: 2rem; margin-bottom: 2rem;
+        display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.5rem 2rem;
+    }
+    .info-section h3 { font-size: 1.1rem; font-weight: 600; color: var(--color-primario); padding-bottom: 0.5rem; border-bottom: 1px solid var(--color-borde); margin-bottom: 1rem; }
+    .info-group { margin-bottom: 0.75rem; }
+    .info-label { font-size: 0.85rem; font-weight: 500; color: var(--color-texto-secundario); text-transform: uppercase; display: block; }
+    .info-value { font-size: 1rem; font-weight: 500; color: var(--color-texto-principal); }
+
+    /* Pestañas */
+    .tabs-nav { display: flex; gap: 0.25rem; border-bottom: 2px solid var(--color-borde); margin-bottom: 1.5rem; }
+    .tab-link {
+        text-decoration: none; color: var(--color-texto-secundario); font-size: 1rem; font-weight: 600;
+        padding: 0.75rem 1.5rem; border-radius: 8px 8px 0 0; border: 2px solid transparent; border-bottom: none;
+        transform: translateY(2px); cursor: pointer; background: none;
+    }
+    .tab-link:hover { background-color: #eaeaea; }
+    .tab-link.active {
+        color: var(--color-primario); background-color: var(--color-fondo-card);
+        border-color: var(--color-borde); border-bottom-color: var(--color-fondo-card);
+    }
+    .tab-pane { display: none; }
+    .tab-pane.active { display: block; }
+
+    /* Tablas */
+    .table-card { background: var(--color-fondo-card); border: 1px solid var(--color-borde); border-radius: 12px; overflow: hidden; }
+    .data-table { width: 100%; border-collapse: collapse; }
+    .data-table thead { background-color: var(--color-fondo); }
+    .data-table th { padding: 1rem 1.25rem; text-align: left; font-size: 0.85rem; font-weight: 600; color: var(--color-texto-secundario); text-transform: uppercase; border-bottom: 2px solid var(--color-borde); }
+    .data-table td { padding: 1.25rem; font-size: 0.95rem; border-bottom: 1px solid var(--color-borde); }
+    .data-table tr:hover { background-color: #fcfcff; }
+
+    /* Tags de Estado (Colores) */
+    .tag { display: inline-flex; align-items: center; padding: 0.3rem 0.8rem; border-radius: 20px; font-weight: 600; font-size: 0.8rem; }
+    .tag::before { content: '●'; margin-right: 0.4rem; font-size: 0.9rem; }
+    
+    /* Definición de colores para estados */
+    .tag.estado-nueva { background-color: #e0f7fa; color: #006064; }
+    .tag.estado-diagnostico { background-color: #e3f2fd; color: #0d47a1; }
+    .tag.estado-esperando { background-color: #fff8e1; color: #f57f17; } /* Autorización/Refacción */
+    .tag.estado-reparacion { background-color: #fff3e0; color: #e65100; }
+    .tag.estado-finalizada { background-color: #e8f5e9; color: #1b5e20; }
+    .tag.estado-entregada { background-color: #f5f5f5; color: #616161; }
+    .tag.estado-cancelada { background-color: #ffebee; color: #b71c1c; }
+
+</style>
+{% endblock %}
+
+{% block content %}
+
+    <!-- Encabezado -->
+    <div class="main-content-header">
+        <div class="header-title-group">
+            <h1>{{ cliente.nombre_completo }}</h1>
+            <span class="subtitle">Registrado el: {{ cliente.fecha_registro|date:"d de F, Y" }}</span>
+        </div>
+        <div class="header-actions">
+            <!-- Botones: Apuntan a vistas futuras o edición -->
+            <a href="#" class="btn btn-action" style="background-color: white; border: 1px solid var(--color-borde); color: var(--color-texto-principal);">
+                <svg style="width:18px;height:18px" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+                Editar Cliente
+            </a>
+            <a href="#" class="btn btn-action">
+                <svg style="width:18px;height:18px" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                Crear Orden
+            </a>
+        </div>
+    </div>
+
+    <!-- Panel de Información -->
+    <section class="client-info-panel">
+        <div class="info-section">
+            <h3>Datos de Contacto</h3>
+            <div class="info-group">
+                <span class="info-label">Teléfono</span>
+                <span class="info-value">{{ cliente.telefono }}</span>
+            </div>
+            <div class="info-group">
+                <span class="info-label">Email</span>
+                <span class="info-value">{{ cliente.email|default:"--" }}</span>
+            </div>
+        </div>
+        <div class="info-section">
+            <h3>Dirección y Facturación</h3>
+            <div class="info-group">
+                <span class="info-label">RFC</span>
+                <span class="info-value">{{ cliente.rfc|default:"--" }}</span>
+            </div>
+            <div class="info-group">
+                <span class="info-label">Dirección</span>
+                <span class="info-value">
+                    {{ cliente.calle|default:"" }} {{ cliente.numero_exterior|default:"" }}, {{ cliente.colonia|default:"" }}<br>
+                    {{ cliente.ciudad|default:"" }}, {{ cliente.estado|default:"" }}
+                </span>
+            </div>
+        </div>
+    </section>
+
+    <!-- Pestañas -->
+    <nav class="tabs-nav">
+        <button class="tab-link active" onclick="openTab(event, 'historial')">Historial de Órdenes</button>
+        <button class="tab-link" onclick="openTab(event, 'equipos')">Equipos Registrados</button>
+    </nav>
+
+    <!-- Contenido Pestañas -->
+    <div class="tabs-content">
+        
+        <!-- Pestaña 1: Historial -->
+        <div id="historial" class="tab-pane active">
+            <div class="table-card">
+                <div style="overflow-x:auto;">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Folio</th>
+                                <th>Fecha</th>
+                                <th>Equipo</th>
+                                <th>Técnico</th>
+                                <th>Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for orden in historial_ordenes %}
+                            <tr>
+                                <td><a href="#" style="color:var(--color-enlace);font-weight:bold;">#{{ orden.id }}</a></td>
+                                <td>{{ orden.fecha_creacion|date:"d/m/Y" }}</td>
+                                <td>{{ orden.equipo }}</td>
+                                <td>{{ orden.tecnico_asignado.first_name|default:"--" }}</td>
+                                <td>
+                                    <!-- Lógica simple para asignar color según estado -->
+                                    {% if orden.estado == 'Nueva' %}
+                                        <span class="tag estado-nueva">{{ orden.estado }}</span>
+                                    {% elif orden.estado == 'En Diagnóstico' %}
+                                        <span class="tag estado-diagnostico">{{ orden.estado }}</span>
+                                    {% elif 'Esperando' in orden.estado %}
+                                        <span class="tag estado-esperando">{{ orden.estado }}</span>
+                                    {% elif orden.estado == 'En Reparación' %}
+                                        <span class="tag estado-reparacion">{{ orden.estado }}</span>
+                                    {% elif 'Finalizada' in orden.estado %}
+                                        <span class="tag estado-finalizada">{{ orden.estado }}</span>
+                                    {% elif orden.estado == 'Entregada' %}
+                                        <span class="tag estado-entregada">{{ orden.estado }}</span>
+                                    {% else %}
+                                        <span class="tag estado-cancelada">{{ orden.estado }}</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="5" style="text-align:center; padding:2rem; color:#777;">Este cliente no tiene órdenes registradas.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Pestaña 2: Equipos -->
+        <div id="equipos" class="tab-pane">
+            <div class="table-card">
+                <div style="overflow-x:auto;">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Tipo</th>
+                                <th>Marca</th>
+                                <th>Modelo</th>
+                                <th>Serie (S/N)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for equipo in equipos %}
+                            <tr>
+                                <td>{{ equipo.tipo_equipo }}</td>
+                                <td>{{ equipo.marca }}</td>
+                                <td>{{ equipo.modelo }}</td>
+                                <td>{{ equipo.numero_serie|default:"--" }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="4" style="text-align:center; padding:2rem; color:#777;">No hay equipos registrados.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function openTab(evt, tabName) {
+        // Ocultar todos los contenidos
+        var i, tabcontent, tablinks;
+        tabcontent = document.getElementsByClassName("tab-pane");
+        for (i = 0; i < tabcontent.length; i++) {
+            tabcontent[i].style.display = "none";
+            tabcontent[i].classList.remove("active");
+        }
+        
+        // Quitar clase active de los botones
+        tablinks = document.getElementsByClassName("tab-link");
+        for (i = 0; i < tablinks.length; i++) {
+            tablinks[i].classList.remove("active");
+        }
+        
+        // Mostrar el actual y añadir clase active
+        document.getElementById(tabName).style.display = "block";
+        evt.currentTarget.classList.add("active");
+    }
+</script>
+{% endblock %}
