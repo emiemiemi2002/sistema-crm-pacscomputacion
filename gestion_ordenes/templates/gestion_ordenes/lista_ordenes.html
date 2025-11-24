@@ -1,0 +1,182 @@
+{% extends 'base.html' %}
+
+{% block title %}Órdenes de Servicio - CRM PACS{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Estilos específicos UI-OM-01 */
+    .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; }
+    .page-title { font-size: 2rem; font-weight: 700; color: var(--color-primario); }
+
+    /* Filtros */
+    .filters-card { background: var(--color-fondo-card); border: 1px solid var(--color-borde); border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem; }
+    .filters-form { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 1rem; align-items: end; }
+    .filter-group { display: flex; flex-direction: column; gap: 0.5rem; }
+    .filter-group label { font-size: 0.85rem; font-weight: 600; color: var(--color-texto-secundario); }
+    .filter-control { width: 100%; padding: 0.6rem; border-radius: 8px; border: 1px solid var(--color-borde); background: var(--color-input-bg); font-size: 0.9rem; }
+    
+    /* Tabla */
+    .table-card { background: var(--color-fondo-card); border: 1px solid var(--color-borde); border-radius: 12px; overflow: hidden; }
+    .table-responsive { overflow-x: auto; }
+    .data-table { width: 100%; border-collapse: collapse; }
+    .data-table thead { background-color: var(--color-fondo); }
+    .data-table th { padding: 1rem 1.25rem; text-align: left; font-size: 0.85rem; font-weight: 600; color: var(--color-texto-secundario); text-transform: uppercase; border-bottom: 2px solid var(--color-borde); }
+    .data-table td { padding: 1.25rem; font-size: 0.95rem; border-bottom: 1px solid var(--color-borde); white-space: nowrap; }
+    .data-table tr:hover { background-color: #fcfcff; }
+    
+    /* Tags */
+    .tag { display: inline-flex; align-items: center; padding: 0.3rem 0.8rem; border-radius: 20px; font-weight: 600; font-size: 0.8rem; }
+    .tag::before { content: '●'; margin-right: 0.4rem; font-size: 0.9rem; }
+    
+    /* Colores de Estado */
+    .tag.estado-nueva { background-color: #f3e8ff; color: #7e22ce; }
+    .tag.estado-diagnostico { background-color: #e3f2fd; color: #0d47a1; }
+    .tag.estado-esperando { background-color: #fff8e1; color: #f57f17; }
+    .tag.estado-reparacion { background-color: #fff3e0; color: #e65100; }
+    .tag.estado-finalizada { background-color: #e8f5e9; color: #1b5e20; }
+    .tag.estado-entregada { background-color: #f5f5f5; color: #616161; }
+    .tag.estado-cancelada { background-color: #ffebee; color: #b71c1c; }
+
+    /* Colores de Prioridad */
+    .tag.prioridad-alta { background-color: #fdf2f2; color: #d9534f; }
+    .tag.prioridad-normal { background-color: #fffbf2; color: #f0ad4e; }
+    .tag.prioridad-baja { background-color: #f2fcff; color: #5bc0de; }
+
+    .pagination { display: flex; justify-content: space-between; align-items: center; padding: 1.5rem; }
+    .pag-btn { padding: 0.5rem 1rem; border: 1px solid var(--color-borde); background: white; border-radius: 6px; text-decoration: none; color: var(--color-texto-principal); font-size: 0.9rem; }
+    .pag-btn:hover { background: var(--color-fondo); }
+</style>
+{% endblock %}
+
+{% block content %}
+
+    <div class="page-header">
+        <h1 class="page-title">Órdenes de Servicio</h1>
+        <!-- El botón de crear llevará a la vista UI-OM-03 en el futuro -->
+        <a href="#" class="btn btn-action">
+            <svg style="width:20px;height:20px" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+            Nueva Orden
+        </a>
+    </div>
+
+    <!-- Filtros -->
+    <div class="filters-card">
+        <form method="GET" class="filters-form">
+            <div class="filter-group">
+                <label for="estado">Estado</label>
+                <select name="estado" id="estado" class="filter-control">
+                    <option value="">Todos</option>
+                    {% for codigo, nombre in estados_opciones %}
+                        <option value="{{ codigo }}" {% if current_filters.estado == codigo %}selected{% endif %}>{{ nombre }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="filter-group">
+                <label for="tecnico">Técnico</label>
+                <select name="tecnico" id="tecnico" class="filter-control">
+                    <option value="">Todos</option>
+                    {% for tecnico in tecnicos_list %}
+                        <option value="{{ tecnico.id }}" {% if current_filters.tecnico == tecnico.id %}selected{% endif %}>{{ tecnico.first_name }} {{ tecnico.last_name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="filter-group">
+                <label for="prioridad">Prioridad</label>
+                <select name="prioridad" id="prioridad" class="filter-control">
+                    <option value="">Todas</option>
+                    {% for codigo, nombre in prioridades_opciones %}
+                        <option value="{{ codigo }}" {% if current_filters.prioridad == codigo %}selected{% endif %}>{{ nombre }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="filter-group">
+                <label for="fecha_inicio">Desde</label>
+                <input type="date" name="fecha_inicio" id="fecha_inicio" class="filter-control" value="{{ current_filters.fecha_inicio|default:'' }}">
+            </div>
+            <div class="filter-group">
+                <button type="submit" class="btn btn-primary" style="width: 100%;">Filtrar</button>
+            </div>
+            <!-- Botón para limpiar filtros -->
+            <div class="filter-group" style="flex-grow: 0;">
+                <a href="{% url 'lista_ordenes' %}" class="btn" style="background: white; border: 1px solid var(--color-borde); color: #555;">Limpiar</a>
+            </div>
+        </form>
+    </div>
+
+    <!-- Tabla -->
+    <div class="table-card">
+        <div class="table-responsive">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Folio</th>
+                        <th>Cliente</th>
+                        <th>Equipo</th>
+                        <th>Técnico</th>
+                        <th>Estado</th>
+                        <th>Prioridad</th>
+                        <th>Fecha</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for orden in page_obj %}
+                    <tr>
+                        <td>
+                            <!-- Placeholder de enlace al detalle -->
+                            <a href="#" style="color:var(--color-enlace); font-weight:bold;">#{{ orden.id }}</a>
+                        </td>
+                        <td>
+                            <a href="{% url 'detalle_cliente' orden.cliente.id %}" style="color:var(--color-enlace); text-decoration:none;">{{ orden.cliente.nombre_completo }}</a>
+                        </td>
+                        <td>{{ orden.equipo.modelo }}</td>
+                        <td>{{ orden.tecnico_asignado.get_full_name|default:"-- Sin Asignar --" }}</td>
+                        <td>
+                            {% if orden.estado == 'Nueva' %} <span class="tag estado-nueva">{{ orden.estado }}</span>
+                            {% elif orden.estado == 'En Diagnóstico' %} <span class="tag estado-diagnostico">{{ orden.estado }}</span>
+                            {% elif 'Esperando' in orden.estado %} <span class="tag estado-esperando">{{ orden.estado }}</span>
+                            {% elif 'Reparación' in orden.estado %} <span class="tag estado-reparacion">{{ orden.estado }}</span>
+                            {% elif 'Finalizada' in orden.estado %} <span class="tag estado-finalizada">Finalizada</span>
+                            {% elif 'Entregada' in orden.estado %} <span class="tag estado-entregada">{{ orden.estado }}</span>
+                            {% else %} <span class="tag estado-cancelada">{{ orden.estado }}</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if orden.prioridad == 'Alta' %} <span class="tag prioridad-alta">Alta</span>
+                            {% elif orden.prioridad == 'Baja' %} <span class="tag prioridad-baja">Baja</span>
+                            {% else %} <span class="tag prioridad-normal">Normal</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ orden.fecha_creacion|date:"d/m/Y" }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" style="text-align: center; padding: 3rem; color: #777;">
+                            No se encontraron órdenes con los filtros seleccionados.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Paginación Inteligente (Mantiene los filtros) -->
+        {% if page_obj.has_other_pages %}
+        <div class="pagination">
+            <span style="color: #777; font-size: 0.9rem;">
+                Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}
+            </span>
+            <div>
+                {% if page_obj.has_previous %}
+                    <!-- Construimos el enlace manualmente manteniendo los params GET -->
+                    <a href="?page={{ page_obj.previous_page_number }}&estado={{ current_filters.estado|default:'' }}&tecnico={{ current_filters.tecnico|default:'' }}&prioridad={{ current_filters.prioridad|default:'' }}&fecha_inicio={{ current_filters.fecha_inicio|default:'' }}" class="pag-btn">&laquo; Anterior</a>
+                {% endif %}
+                
+                {% if page_obj.has_next %}
+                    <a href="?page={{ page_obj.next_page_number }}&estado={{ current_filters.estado|default:'' }}&tecnico={{ current_filters.tecnico|default:'' }}&prioridad={{ current_filters.prioridad|default:'' }}&fecha_inicio={{ current_filters.fecha_inicio|default:'' }}" class="pag-btn">Siguiente &raquo;</a>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+{% endblock %}
