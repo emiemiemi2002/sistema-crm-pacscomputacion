@@ -1,8 +1,11 @@
-from django.shortcuts import render
+from django.shortcuts import render, redirect, get_object_or_404
+from django.http import JsonResponse
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
+from django.views.decorators.http import require_GET
 from django.core.paginator import Paginator
 from django.utils.dateparse import parse_date
+from gestion_clientes.models import Cliente, Equipo
 from .models import OrdenServicio
 
 #
@@ -68,3 +71,94 @@ def lista_ordenes(request):
     }
 
     return render(request, 'gestion_ordenes/lista_ordenes.html', context)
+
+#
+@login_required
+def crear_orden(request):
+    """
+    Vista para el formulario de creación de una nueva orden de servicio.
+    """
+    if request.method == 'POST':
+        # Procesar el formulario enviado
+        cliente_id = request.POST.get('cliente_id')
+        equipo_id = request.POST.get('equipo_id')
+        descripcion = request.POST.get('descripcion_falla')
+        contrasena = request.POST.get('contrasena_equipo')
+        prioridad = request.POST.get('prioridad')
+        tecnico_id = request.POST.get('tecnico_asignado')
+
+        # Validaciones básicas (puedes usar Django Forms para esto, pero aquí lo hacemos manual para claridad)
+        if cliente_id and equipo_id and descripcion:
+            cliente = get_object_or_404(Cliente, pk=cliente_id)
+            equipo = get_object_or_404(Equipo, pk=equipo_id)
+            
+            nueva_orden = OrdenServicio(
+                cliente=cliente,
+                equipo=equipo,
+                descripcion_falla=descripcion,
+                contrasena_equipo=contrasena,
+                prioridad=prioridad,
+                asistente_receptor=request.user, # El usuario logueado creó la orden
+                estado=OrdenServicio.ESTADO_NUEVA # Estado inicial por defecto
+            )
+
+            if tecnico_id:
+                tecnico = User.objects.get(pk=tecnico_id)
+                nueva_orden.tecnico_asignado = tecnico
+
+            nueva_orden.save()
+            
+            # Redirigir al detalle de la orden recién creada (asumiendo que ya tienes esa URL o la crearás pronto)
+            # return redirect('detalle_orden', id=nueva_orden.id) 
+            return redirect('lista_ordenes') # Por ahora redirigimos a la lista
+
+    # GET: Mostrar el formulario vacío
+    tecnicos_list = User.objects.filter(groups__name='Técnico')
+    prioridades = OrdenServicio.PRIORIDAD_OPCIONES
+    
+    # Si venimos desde el detalle de cliente con un ID pre-seleccionado
+    cliente_preseleccionado = None
+    equipos_preseleccionados = []
+    cliente_id_param = request.GET.get('cliente_id')
+    
+    if cliente_id_param:
+        cliente_preseleccionado = get_object_or_404(Cliente, pk=cliente_id_param)
+        equipos_preseleccionados = cliente_preseleccionado.equipos.all()
+
+    context = {
+        'tecnicos_list': tecnicos_list,
+        'prioridades': prioridades,
+        'cliente_pre': cliente_preseleccionado,
+        'equipos_pre': equipos_preseleccionados,
+    }
+    return render(request, 'gestion_ordenes/crear_orden.html', context)
+
+
+@login_required
+@require_GET
+def buscar_cliente_api(request):
+    """
+    API interna para buscar clientes y devolver sus datos y equipos en JSON.
+    Se usa mediante AJAX desde el formulario de crear orden.
+    """
+    query = request.GET.get('q', '')
+    if len(query) < 3:
+        return JsonResponse({'resultados': []}) # No buscar si es muy corto
+
+    clientes = Cliente.objects.filter(
+        nombre_completo__icontains=query
+    ) | Cliente.objects.filter(
+        telefono__icontains=query
+    )
+    
+    resultados = []
+    for c in clientes[:5]: # Limitar a 5 resultados
+        equipos = list(c.equipos.values('id', 'tipo_equipo', 'marca', 'modelo', 'numero_serie'))
+        resultados.append({
+            'id': c.id,
+            'nombre': c.nombre_completo,
+            'telefono': c.telefono,
+            'equipos': equipos
+        })
+    
+    return JsonResponse({'resultados': resultados})

@@ -1,9 +1,10 @@
-from django.shortcuts import render, get_object_or_404
+from django.shortcuts import render, redirect, get_object_or_404
 #
 from django.core.paginator import Paginator
 from django.db.models import Q
+from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from .models import Cliente
+from .models import Cliente, Equipo
 from gestion_ordenes.models import OrdenServicio
 
 #
@@ -61,3 +62,65 @@ def detalle_cliente(request, id):
     }
     
     return render(request, 'gestion_clientes/detalle_cliente.html', context)
+
+#
+@login_required
+def crear_equipo(request):
+    """
+    Vista para registrar un nuevo equipo.
+    Puede recibir un 'cliente_id' en la URL para pre-seleccionar el cliente.
+    """
+    # Si venimos de la vista 'crear_orden', traeremos el ID del cliente
+    cliente_preseleccionado_id = request.GET.get('cliente_id')
+    cliente_obj = None
+    if cliente_preseleccionado_id:
+        cliente_obj = get_object_or_404(Cliente, pk=cliente_preseleccionado_id)
+
+    if request.method == 'POST':
+        # Procesar el formulario
+        cliente_id = request.POST.get('cliente_id')
+        tipo_equipo = request.POST.get('tipo_equipo')
+        marca = request.POST.get('marca')
+        modelo = request.POST.get('modelo')
+        serie = request.POST.get('serie')
+
+        if cliente_id and tipo_equipo and marca and modelo:
+            cliente = get_object_or_404(Cliente, pk=cliente_id)
+            
+            nuevo_equipo = Equipo(
+                cliente=cliente,
+                tipo_equipo=tipo_equipo,
+                marca=marca,
+                modelo=modelo,
+                numero_serie=serie
+            )
+            nuevo_equipo.save()
+            
+            messages.success(request, f'Equipo {marca} {modelo} registrado correctamente.')
+
+            # Lógica de redirección inteligente
+            next_url = request.GET.get('next')
+            if next_url == 'crear_orden':
+                # Si venía de crear orden, regresamos ahí con el cliente pre-seleccionado
+                return redirect(f'/ordenes/crear/?cliente_id={cliente.id}')
+            elif next_url == 'detalle_cliente':
+                 return redirect('detalle_cliente', id=cliente.id)
+            
+            # Por defecto, ir al detalle del cliente dueño del equipo
+            return redirect('detalle_cliente', id=cliente.id)
+
+    # GET: Mostrar formulario
+    # Si no hay cliente preseleccionado, necesitamos la lista completa para el select
+    clientes_list = None
+    if not cliente_obj:
+        clientes_list = Cliente.objects.all().order_by('nombre_completo')
+
+    # Obtenemos las opciones del modelo para el tipo de equipo
+    tipos_equipo = Equipo.TIPO_EQUIPO_OPCIONES
+
+    context = {
+        'cliente_pre': cliente_obj,
+        'clientes_list': clientes_list,
+        'tipos_equipo': tipos_equipo,
+    }
+    return render(request, 'gestion_clientes/crear_equipo.html', context)

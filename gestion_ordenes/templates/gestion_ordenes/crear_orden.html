@@ -1,0 +1,239 @@
+{% extends 'base.html' %}
+
+{% block title %}Crear Orden - CRM PACS{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Estilos específicos UI-OM-03 */
+    .page-header { margin-bottom: 2rem; }
+    .page-title { font-size: 2rem; font-weight: 700; color: var(--color-primario); }
+
+    .order-form { background: var(--color-fondo-card); border: 1px solid var(--color-borde); border-radius: 12px; padding: 2.5rem; box-shadow: 0 4px 12px rgba(0,0,0,0.04); }
+    
+    .form-section { margin-bottom: 2.5rem; padding-bottom: 1.5rem; border-bottom: 1px dashed var(--color-borde); }
+    .form-section:last-of-type { border-bottom: none; margin-bottom: 0; }
+    .form-section h2 { font-size: 1.25rem; font-weight: 600; color: var(--color-primario); margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.75rem; }
+    
+    .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.5rem 2rem; }
+    .form-group { display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1rem; }
+    
+    label { font-size: 0.9rem; font-weight: 600; color: var(--color-texto-secundario); }
+    input, select, textarea { width: 100%; padding: 0.85rem 1rem; border-radius: 8px; border: 1px solid var(--color-borde); background: var(--color-input-bg); font-size: 0.95rem; font-family: 'Inter', sans-serif; }
+    input:focus, select:focus, textarea:focus { outline: none; border-color: var(--color-primario); }
+    
+    .input-group { display: flex; gap: 0.5rem; }
+    
+    /* Resultados de búsqueda */
+    #search-results { margin-top: 0.5rem; border: 1px solid var(--color-borde); border-radius: 8px; max-height: 200px; overflow-y: auto; display: none; }
+    .result-item { padding: 0.75rem 1rem; cursor: pointer; border-bottom: 1px solid var(--color-borde); background: white; }
+    .result-item:hover { background-color: var(--color-fondo); }
+    .result-item:last-child { border-bottom: none; }
+    
+    /* Tarjeta de cliente seleccionado */
+    #selected-client-card { background-color: #e3f2fd; padding: 1rem; border-radius: 8px; border: 1px solid #90caf9; display: none; margin-top: 1rem; }
+    #selected-client-card.active { display: block; }
+    
+    .form-actions { display: flex; justify-content: flex-end; gap: 1rem; margin-top: 2rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+    <div class="page-header">
+        <h1 class="page-title">Crear Nueva Orden de Servicio</h1>
+    </div>
+
+    <form method="POST" class="order-form" id="create-order-form">
+        {% csrf_token %}
+        
+        <!-- Campos ocultos para IDs -->
+        <input type="hidden" name="cliente_id" id="id_cliente_hidden" value="{{ cliente_pre.id|default:'' }}">
+
+        <!-- SECCIÓN 1: CLIENTE -->
+        <section class="form-section">
+            <h2>
+                <svg style="width:24px;height:24px" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
+                Información del Cliente
+            </h2>
+            
+            <div class="form-group">
+                <label for="search-input">Buscar Cliente (Nombre o Teléfono)</label>
+                <div class="input-group">
+                    <input type="text" id="search-input" placeholder="Escribe para buscar..." autocomplete="off" {% if cliente_pre %}disabled value="{{ cliente_pre.nombre_completo }}"{% endif %}>
+                    <button type="button" id="btn-buscar" class="btn btn-primary">Buscar</button>
+                </div>
+                <!-- Lista desplegable de resultados -->
+                <div id="search-results"></div>
+                
+                <small style="margin-top: 0.5rem; display: block; color: #777;">
+                    ¿Cliente nuevo? <a href="{% url 'lista_clientes' %}" target="_blank" style="color: var(--color-primario); font-weight: bold;">Regístralo aquí</a> y luego búscalo.
+                </small>
+            </div>
+
+            <!-- Tarjeta visual del cliente seleccionado -->
+            <div id="selected-client-card" class="{% if cliente_pre %}active{% endif %}">
+                <strong>Cliente Seleccionado:</strong> <span id="display-nombre">{{ cliente_pre.nombre_completo }}</span><br>
+                <small>Tel: <span id="display-telefono">{{ cliente_pre.telefono }}</span></small>
+                <button type="button" id="btn-cambiar-cliente" style="float: right; background: none; border: none; color: #d32f2f; cursor: pointer; text-decoration: underline; font-size: 0.85rem;">Cambiar</button>
+            </div>
+        </section>
+
+        <!-- SECCIÓN 2: EQUIPO -->
+        <section class="form-section">
+            <h2>
+                <svg style="width:24px;height:24px" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
+                Información del Equipo
+            </h2>
+            <div class="form-grid">
+                <div class="form-group" style="grid-column: 1 / -1;">
+                    <label for="equipo_select">Seleccionar Equipo Registrado *</label>
+                    <select name="equipo_id" id="equipo_select" required>
+                        <option value="">-- Primero selecciona un cliente --</option>
+                        {% if equipos_pre %}
+                            {% for equipo in equipos_pre %}
+                                <option value="{{ equipo.id }}">{{ equipo.tipo_equipo }} {{ equipo.marca }} {{ equipo.modelo }} (S/N: {{ equipo.numero_serie }})</option>
+                            {% endfor %}
+                        {% endif %}
+                    </select>
+                    <small style="margin-top:0.5rem;">¿Equipo nuevo? <a href="#" id="link-crear-equipo" style="color:var(--color-primario);" target="_blank">Registrar nuevo equipo</a> (Abre en otra pestaña)</small>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECCIÓN 3: DETALLES DEL SERVICIO -->
+        <section class="form-section">
+            <h2>
+                <svg style="width:24px;height:24px" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path></svg>
+                Detalles del Servicio
+            </h2>
+            <div class="form-group">
+                <label for="descripcion_falla">Descripción de la Falla *</label>
+                <textarea name="descripcion_falla" id="descripcion_falla" rows="4" placeholder="Describe el problema reportado por el cliente..." required></textarea>
+            </div>
+            <div class="form-grid">
+                <div class="form-group">
+                    <label for="contrasena">Contraseña del Equipo (Opcional)</label>
+                    <input type="text" name="contrasena_equipo" id="contrasena" placeholder="PIN, Patrón o Contraseña">
+                </div>
+                <div class="form-group">
+                    <label for="prioridad">Prioridad</label>
+                    <select name="prioridad" id="prioridad">
+                        {% for codigo, nombre in prioridades %}
+                            <option value="{{ codigo }}" {% if codigo == 'Normal' %}selected{% endif %}>{{ nombre }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="tecnico">Asignar Técnico</label>
+                    <select name="tecnico_asignado" id="tecnico">
+                        <option value="">-- Sin asignar --</option>
+                        {% for tecnico in tecnicos_list %}
+                            <option value="{{ tecnico.id }}">{{ tecnico.first_name }} {{ tecnico.last_name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+        </section>
+
+        <div class="form-actions">
+            <a href="{% url 'lista_ordenes' %}" class="btn btn-secondary" style="text-decoration: none; background:#fff; border:1px solid #ccc; color:#333;">Cancelar</a>
+            <button type="submit" class="btn btn-primary">Guardar Orden</button>
+        </div>
+    </form>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const btnBuscar = document.getElementById('btn-buscar');
+        const searchInput = document.getElementById('search-input');
+        const resultsContainer = document.getElementById('search-results');
+        const clientHiddenInput = document.getElementById('id_cliente_hidden');
+        const equipoSelect = document.getElementById('equipo_select');
+        const card = document.getElementById('selected-client-card');
+        const displayNombre = document.getElementById('display-nombre');
+        const displayTel = document.getElementById('display-telefono');
+        const btnCambiar = document.getElementById('btn-cambiar-cliente');
+
+        // Buscar el elemento del enlace
+        const linkCrearEquipo = document.getElementById('link-crear-equipo');
+
+        // Función para buscar cliente vía AJAX
+        btnBuscar.addEventListener('click', function() {
+            const query = searchInput.value;
+            if (query.length < 3) {
+                alert("Ingresa al menos 3 caracteres para buscar.");
+                return;
+            }
+
+            // Llamada AJAX a la API
+            fetch(`{% url 'buscar_cliente_api' %}?q=${query}`)
+                .then(response => response.json())
+                .then(data => {
+                    resultsContainer.innerHTML = ''; // Limpiar
+                    resultsContainer.style.display = 'block';
+
+                    if (data.resultados.length === 0) {
+                        resultsContainer.innerHTML = '<div class="result-item" style="color: #777;">No se encontraron clientes.</div>';
+                    } else {
+                        data.resultados.forEach(cliente => {
+                            const div = document.createElement('div');
+                            div.classList.add('result-item');
+                            div.innerHTML = `<strong>${cliente.nombre}</strong> - ${cliente.telefono}`;
+                            
+                            // Al hacer clic en un resultado
+                            div.addEventListener('click', function() {
+                                seleccionarCliente(cliente);
+                            });
+                            resultsContainer.appendChild(div);
+                        });
+                    }
+                });
+        });
+
+        function seleccionarCliente(cliente) {
+            // 1. Llenar datos del cliente
+            clientHiddenInput.value = cliente.id;
+            displayNombre.textContent = cliente.nombre;
+            displayTel.textContent = cliente.telefono;
+            
+            // 2. Mostrar tarjeta y bloquear búsqueda
+            card.style.display = 'block';
+            searchInput.disabled = true;
+            resultsContainer.style.display = 'none';
+
+            // 3. Llenar el select de equipos
+            equipoSelect.innerHTML = '<option value="">-- Seleccionar Equipo --</option>';
+            if (cliente.equipos.length > 0) {
+                cliente.equipos.forEach(eq => {
+                    const option = document.createElement('option');
+                    option.value = eq.id;
+                    option.textContent = `${eq.tipo_equipo} ${eq.marca} ${eq.modelo} (S/N: ${eq.numero_serie || 'S/N'})`;
+                    equipoSelect.appendChild(option);
+                });
+            } else {
+                equipoSelect.innerHTML = '<option value="">-- Este cliente no tiene equipos registrados --</option>';
+            }
+
+            // 4. Actualizar el enlace de "Registrar nuevo equipo"
+            if (linkCrearEquipo) {
+                // Construimos la URL con parámetros:
+                // cliente_id: para que el formulario de equipo ya sepa de quién es.
+                // next: para decirle "cuando termines, vuelve a la vista crear_orden".
+                linkCrearEquipo.href = `{% url 'crear_equipo' %}?cliente_id=${cliente.id}&next=crear_orden`;
+            }
+        }
+
+        // Botón "Cambiar" cliente
+        btnCambiar.addEventListener('click', function() {
+            clientHiddenInput.value = '';
+            card.style.display = 'none';
+            searchInput.disabled = false;
+            searchInput.value = '';
+            searchInput.focus();
+            equipoSelect.innerHTML = '<option value="">-- Primero selecciona un cliente --</option>';
+        });
+    });
+</script>
+{% endblock %}

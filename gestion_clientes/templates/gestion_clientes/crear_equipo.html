@@ -1,0 +1,113 @@
+{% extends 'base.html' %}
+
+{% block title %}Registrar Equipo - CRM PACS{% endblock %}
+
+{% block extra_css %}
+<style>
+    .page-header { margin-bottom: 2rem; }
+    .page-title { font-size: 2rem; font-weight: 700; color: var(--color-primario); }
+    
+    .form-card { 
+        background: var(--color-fondo-card); 
+        border: 1px solid var(--color-borde); 
+        border-radius: 12px; 
+        padding: 2.5rem; 
+        max-width: 800px; 
+        margin: 0 auto; /* Centrado */
+        box-shadow: 0 4px 12px rgba(0,0,0,0.04);
+    }
+
+    .form-group { margin-bottom: 1.5rem; display: flex; flex-direction: column; gap: 0.5rem; }
+    label { font-weight: 600; font-size: 0.9rem; color: var(--color-texto-secundario); }
+    
+    input, select {
+        padding: 0.85rem 1rem;
+        border-radius: 8px;
+        border: 1px solid var(--color-borde);
+        background-color: var(--color-input-bg);
+        font-family: 'Inter', sans-serif;
+        font-size: 0.95rem;
+    }
+    input:focus, select:focus { outline: none; border-color: var(--color-primario); }
+
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+    
+    .form-actions { display: flex; justify-content: flex-end; gap: 1rem; margin-top: 2rem; border-top: 1px solid var(--color-borde); padding-top: 1.5rem; }
+    
+    .client-readonly {
+        background-color: #e3f2fd;
+        border: 1px solid #90caf9;
+        color: #0d47a1;
+        font-weight: 600;
+        cursor: not-allowed;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+
+    <div class="page-header" style="text-align: center;">
+        <h1 class="page-title">Registrar Nuevo Equipo</h1>
+    </div>
+
+    <div class="form-card">
+        <form method="POST">
+            {% csrf_token %}
+            
+            <!-- Selección de Cliente -->
+            <div class="form-group">
+                <label for="cliente_select">Cliente Propietario *</label>
+                {% if cliente_pre %}
+                    <!-- Caso 1: Cliente ya seleccionado (viene de otra vista) -->
+                    <input type="text" class="client-readonly" value="{{ cliente_pre.nombre_completo }}" readonly>
+                    <input type="hidden" name="cliente_id" value="{{ cliente_pre.id }}">
+                {% else %}
+                    <!-- Caso 2: Selección manual -->
+                    <select name="cliente_id" id="cliente_select" required>
+                        <option value="">-- Selecciona un Cliente --</option>
+                        {% for c in clientes_list %}
+                            <option value="{{ c.id }}">{{ c.nombre_completo }}</option>
+                        {% endfor %}
+                    </select>
+                    <small style="margin-top: 0.25rem;">
+                        ¿No encuentras al cliente? <a href="{% url 'lista_clientes' %}" style="color: var(--color-primario);">Créalo primero aquí</a>.
+                    </small>
+                {% endif %}
+            </div>
+
+            <!-- Detalles del Equipo -->
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="tipo_equipo">Tipo de Equipo *</label>
+                    <select name="tipo_equipo" id="tipo_equipo" required>
+                        <option value="">-- Selecciona Tipo --</option>
+                        {% for codigo, nombre in tipos_equipo %}
+                            <option value="{{ codigo }}">{{ nombre }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="marca">Marca *</label>
+                    <input type="text" name="marca" id="marca" placeholder="Ej. Dell, HP, Apple" required>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="modelo">Modelo *</label>
+                    <input type="text" name="modelo" id="modelo" placeholder="Ej. Inspiron 15, MacBook Air" required>
+                </div>
+                <div class="form-group">
+                    <label for="serie">Número de Serie</label>
+                    <input type="text" name="serie" id="serie" placeholder="S/N (Opcional pero recomendado)">
+                </div>
+            </div>
+
+            <div class="form-actions">
+                <a href="javascript:history.back()" class="btn btn-secondary" style="text-decoration: none; border: 1px solid #ccc; color: #333;">Cancelar</a>
+                <button type="submit" class="btn btn-primary">Guardar Equipo</button>
+            </div>
+        </form>
+    </div>
+
+{% endblock %}
