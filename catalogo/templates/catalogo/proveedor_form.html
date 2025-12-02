@@ -1,0 +1,41 @@
+{% extends 'base.html' %}
+
+{% block title %}{% if form.instance.pk %}Editar{% else %}Nuevo{% endif %} Proveedor - CRM PACS{% endblock %}
+
+{% block extra_css %}
+<style>
+    .form-card { background: var(--color-fondo-card); border: 1px solid var(--color-borde); border-radius: 12px; padding: 2.5rem; max-width: 600px; margin: 2rem auto; }
+    .form-group { margin-bottom: 1.25rem; }
+    .form-group label { display: block; font-weight: 600; margin-bottom: 0.5rem; color: var(--color-texto-secundario); }
+    .form-group input { width: 100%; padding: 0.8rem; border-radius: 8px; border: 1px solid var(--color-borde); background: var(--color-input-bg); }
+    .btn-container { display: flex; justify-content: flex-end; gap: 1rem; margin-top: 2rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="form-card">
+    <h2 style="margin-bottom: 1.5rem; color: var(--color-primario);">
+        {% if form.instance.pk %}Editar{% else %}Registrar Nuevo{% endif %} Proveedor
+    </h2>
+    
+    <form method="post">
+        {% csrf_token %}
+        
+        <!-- Renderizado manual de campos para aplicar estilos o usar form.as_p -->
+        {% for field in form %}
+        <div class="form-group">
+            <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+            {{ field }} <!-- Asegúrate de añadir clases CSS en el form widget si quieres estilos específicos o usa CSS global -->
+            {% if field.errors %}
+                <small style="color: #d32f2f;">{{ field.errors.0 }}</small>
+            {% endif %}
+        </div>
+        {% endfor %}
+
+        <div class="btn-container">
+            <a href="{% url 'lista_catalogos' %}?tab=proveedores" class="btn" style="background:#fff; border:1px solid #ccc; color:#333;">Cancelar</a>
+            <button type="submit" class="btn btn-action">Guardar</button>
+        </div>
+    </form>
+</div>
+{% endblock %}

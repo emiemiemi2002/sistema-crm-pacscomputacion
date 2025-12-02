@@ -1,0 +1,190 @@
+{% extends 'base.html' %}
+
+{% block title %}Catálogos - CRM PACS{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Estilos específicos reutilizando los del prototipo */
+    .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; }
+    .page-title { font-size: 2rem; font-weight: 700; color: var(--color-primario); }
+
+    /* Pestañas */
+    .tabs-nav { display: flex; gap: 0.25rem; border-bottom: 2px solid var(--color-borde); margin-bottom: 2rem; }
+    .tab-link {
+        text-decoration: none; color: var(--color-texto-secundario); font-size: 1.1rem; font-weight: 600;
+        padding: 0.85rem 1.75rem; border-radius: 8px 8px 0 0; border: 2px solid transparent; border-bottom: none;
+        transform: translateY(2px); cursor: pointer; background: none; transition: all 0.2s;
+    }
+    .tab-link:hover { background-color: var(--color-fondo-card); color: var(--color-texto-principal); }
+    .tab-link.active {
+        color: var(--color-primario); background-color: var(--color-fondo-card);
+        border-color: var(--color-borde); border-bottom-color: var(--color-fondo-card);
+    }
+    .tab-pane { display: none; }
+    .tab-pane.active { display: block; }
+
+    /* Encabezados de sección */
+    .tab-section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
+    .tab-section-header h2 { font-size: 1.5rem; font-weight: 600; color: var(--color-primario); }
+
+    /* Tablas */
+    .table-container { background: var(--color-fondo-card); border: 1px solid var(--color-borde); border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.04); }
+    .data-table { width: 100%; border-collapse: collapse; }
+    .data-table th { padding: 1rem 1.25rem; text-align: left; background: var(--color-fondo); font-weight: 600; color: var(--color-texto-secundario); text-transform: uppercase; font-size: 0.85rem; }
+    .data-table td { padding: 1.25rem; border-bottom: 1px solid var(--color-borde); font-size: 0.95rem; }
+    .data-table tr:hover { background-color: #fcfcff; }
+    .actions-cell { text-align: right; white-space: nowrap; width: 1%; }
+    
+    .btn-icon { background: none; border: none; cursor: pointer; color: var(--color-texto-secundario); padding: 0.4rem; transition: color 0.2s; }
+    .btn-icon:hover { color: var(--color-primario); }
+    .btn-icon.delete:hover { color: #d32f2f; }
+
+    /* Mensajes */
+    .alert { padding: 1rem; margin-bottom: 1rem; border-radius: 8px; font-weight: 500; }
+    .alert-success { background-color: #e8f5e9; color: #1b5e20; border: 1px solid #c8e6c9; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+    <div class="page-header">
+        <h1 class="page-title">Gestión de Catálogos</h1>
+    </div>
+
+    <!-- Mensajes de Django (Éxito/Error) -->
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }}">
+                {{ message }}
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <!-- Navegación de Pestañas -->
+    <nav class="tabs-nav">
+        <button class="tab-link {% if active_tab == 'proveedores' %}active{% endif %}" onclick="openTab(event, 'proveedores')">Proveedores</button>
+        <button class="tab-link {% if active_tab == 'servicios' %}active{% endif %}" onclick="openTab(event, 'servicios')">Tipos de Servicio</button>
+    </nav>
+
+    <div class="tabs-content">
+        
+        <!-- PESTAÑA PROVEEDORES -->
+        <div id="proveedores" class="tab-pane {% if active_tab == 'proveedores' %}active{% endif %}">
+            <div class="tab-section-header">
+                <h2>Lista de Proveedores</h2>
+                <a href="{% url 'crear_proveedor' %}" class="btn btn-action">
+                    <svg style="width:20px;height:20px" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                    Agregar Proveedor
+                </a>
+            </div>
+            
+            <div class="table-container">
+                <div style="overflow-x:auto;">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Empresa</th>
+                                <th>Contacto</th>
+                                <th>Teléfono</th>
+                                <th>Email</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for p in proveedores %}
+                            <tr>
+                                <td><strong>{{ p.nombre_empresa }}</strong></td>
+                                <td>{{ p.persona_contacto|default:"--" }}</td>
+                                <td>{{ p.telefono|default:"--" }}</td>
+                                <td>{{ p.email|default:"--" }}</td>
+                                <td class="actions-cell">
+                                    <a href="{% url 'editar_proveedor' p.id %}" class="btn-icon" title="Editar">
+                                        <svg style="width:20px;height:20px" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                                    </a>
+                                    <a href="{% url 'eliminar_proveedor' p.id %}" class="btn-icon delete" title="Eliminar">
+                                        <svg style="width:20px;height:20px" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                    </a>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="5" style="text-align:center; padding:2rem; color:#777;">No hay proveedores registrados.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- PESTAÑA SERVICIOS -->
+        <div id="servicios" class="tab-pane {% if active_tab == 'servicios' %}active{% endif %}">
+            <div class="tab-section-header">
+                <h2>Lista de Tipos de Servicio</h2>
+                <a href="{% url 'crear_servicio' %}" class="btn btn-action">
+                    <svg style="width:20px;height:20px" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                    Agregar Servicio
+                </a>
+            </div>
+
+            <div class="table-container">
+                <div style="overflow-x:auto;">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Nombre Servicio</th>
+                                <th>Descripción</th>
+                                <th>Costo Estándar</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for s in tipos_servicio %}
+                            <tr>
+                                <td><strong>{{ s.nombre_servicio }}</strong></td>
+                                <td style="max-width: 300px;">{{ s.descripcion|default:"--"|truncatechars:50 }}</td>
+                                <td>${{ s.costo_estandar }}</td>
+                                <td class="actions-cell">
+                                    <a href="{% url 'editar_servicio' s.id %}" class="btn-icon" title="Editar">
+                                        <svg style="width:20px;height:20px" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                                    </a>
+                                    <a href="{% url 'eliminar_servicio' s.id %}" class="btn-icon delete" title="Eliminar">
+                                        <svg style="width:20px;height:20px" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                    </a>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="4" style="text-align:center; padding:2rem; color:#777;">No hay servicios registrados.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function openTab(evt, tabName) {
+        // Ocultar tabs
+        var tabcontent = document.getElementsByClassName("tab-pane");
+        for (var i = 0; i < tabcontent.length; i++) {
+            tabcontent[i].style.display = "none";
+            tabcontent[i].classList.remove("active");
+        }
+        // Desactivar botones
+        var tablinks = document.getElementsByClassName("tab-link");
+        for (var i = 0; i < tablinks.length; i++) {
+            tablinks[i].classList.remove("active");
+        }
+        // Activar actual
+        document.getElementById(tabName).style.display = "block";
+        evt.currentTarget.classList.add("active");
+    }
+</script>
+{% endblock %}

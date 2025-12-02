@@ -124,3 +124,92 @@ def crear_equipo(request):
         'tipos_equipo': tipos_equipo,
     }
     return render(request, 'gestion_clientes/crear_equipo.html', context)
+
+@login_required
+def crear_cliente(request):
+    """
+    Vista para registrar un nuevo cliente.
+    """
+    values = None # Inicializamos 'values' como un diccionario vacío por defecto
+
+    if request.method == 'POST':
+        # Captura de datos del formulario
+        nombre = request.POST.get('nombre_completo')
+        telefono = request.POST.get('telefono')
+        email = request.POST.get('email')
+        rfc = request.POST.get('rfc')
+        
+        # Dirección
+        calle = request.POST.get('calle')
+        num_ext = request.POST.get('numero_exterior')
+        num_int = request.POST.get('numero_interior')
+        colonia = request.POST.get('colonia')
+        cp = request.POST.get('codigo_postal')
+        ciudad = request.POST.get('ciudad')
+        estado = request.POST.get('estado')
+
+        # Guardamos lo enviado en 'values' para re-llenar el formulario si hay error
+        values = request.POST
+
+        # Validación básica (nombre y teléfono obligatorios)
+        if nombre and telefono:
+            # Verificar duplicados (opcional pero recomendado)
+            if Cliente.objects.filter(telefono=telefono).exists():
+                messages.error(request, 'Ya existe un cliente con ese número de teléfono.')
+                # Retornamos aquí con los valores para no perder lo escrito
+                return render(request, 'gestion_clientes/cliente_form.html', {'values': values})
+
+            nuevo_cliente = Cliente(
+                nombre_completo=nombre,
+                telefono=telefono,
+                email=email,
+                rfc=rfc,
+                calle=calle,
+                numero_exterior=num_ext,
+                numero_interior=num_int,
+                colonia=colonia,
+                codigo_postal=cp,
+                ciudad=ciudad,
+                estado=estado
+            )
+            nuevo_cliente.save()
+            messages.success(request, f'Cliente "{nombre}" creado exitosamente.')
+            return redirect('detalle_cliente', id=nuevo_cliente.id)
+        else:
+            messages.error(request, 'Por favor completa los campos obligatorios (*).')
+
+    # Renderizamos la plantilla pasando 'values' (vacío si es GET, con datos si hubo error en POST)
+    return render(request, 'gestion_clientes/cliente_form.html', {'values': values})
+
+@login_required
+def editar_cliente(request, id):
+    """
+    Vista para actualizar los datos de un cliente existente.
+    """
+    cliente = get_object_or_404(Cliente, pk=id)
+
+    if request.method == 'POST':
+        # Actualización de campos
+        cliente.nombre_completo = request.POST.get('nombre_completo')
+        cliente.telefono = request.POST.get('telefono')
+        cliente.email = request.POST.get('email')
+        cliente.rfc = request.POST.get('rfc')
+        
+        # Dirección
+        cliente.calle = request.POST.get('calle')
+        cliente.numero_exterior = request.POST.get('numero_exterior')
+        cliente.numero_interior = request.POST.get('numero_interior')
+        cliente.colonia = request.POST.get('colonia')
+        cliente.codigo_postal = request.POST.get('codigo_postal')
+        cliente.ciudad = request.POST.get('ciudad')
+        cliente.estado = request.POST.get('estado')
+
+        if cliente.nombre_completo and cliente.telefono:
+            cliente.save()
+            messages.success(request, 'Información del cliente actualizada correctamente.')
+            return redirect('detalle_cliente', id=cliente.id)
+        else:
+            messages.error(request, 'El nombre y teléfono no pueden estar vacíos.')
+
+    # Renderizar el mismo formulario pero con el objeto 'cliente' para pre-llenar datos
+    return render(request, 'gestion_clientes/cliente_form.html', {'cliente': cliente})
