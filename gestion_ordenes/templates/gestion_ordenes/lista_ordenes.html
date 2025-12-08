@@ -52,8 +52,8 @@
 
     <div class="page-header">
         <h1 class="page-title">Órdenes de Servicio</h1>
-        <!-- El botón de crear llevará a la vista UI-OM-03 en el futuro -->
-        <a href="#" class="btn btn-action">
+        <!-- El botón de crear llevará a la vista UI-OM-03 -->
+        <a href="{% url 'crear_orden' %}" class="btn btn-action">
             <svg style="width:20px;height:20px" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
             Nueva Orden
         </a>
@@ -123,7 +123,7 @@
                     <tr>
                         <td>
                             <!-- Placeholder de enlace al detalle -->
-                            <a href="#" style="color:var(--color-enlace); font-weight:bold;">#{{ orden.id }}</a>
+                            <a href="{% url 'detalle_orden' orden.id %}" style="color:var(--color-enlace); font-weight:bold;">#{{ orden.id }}</a>
                         </td>
                         <td>
                             <a href="{% url 'detalle_cliente' orden.cliente.id %}" style="color:var(--color-enlace); text-decoration:none;">{{ orden.cliente.nombre_completo }}</a>

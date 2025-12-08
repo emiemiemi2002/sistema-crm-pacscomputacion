@@ -10,4 +10,7 @@ urlpatterns = [
 
     # API Endpoint: Búsqueda de clientes vía AJAX (usado en crear_orden)
     path('api/buscar-cliente/', views.buscar_cliente_api, name='buscar_cliente_api'),
+
+    # UI-OM-02: Detalle de orden
+    path('orden/<int:orden_id>/', views.detalle_orden, name='detalle_orden'),
 ]

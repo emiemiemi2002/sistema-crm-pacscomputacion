@@ -1,0 +1,400 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Expediente #{{ orden.pk }} | PACS CRM{% endblock %}
+
+{% block content %}
+
+<style>
+    :root {
+        --primary-color: #2c3e50;
+        --accent-color: #3498db;
+        --bg-light: #f4f6f9;
+        --border-color: #dee2e6;
+        --text-muted: #6c757d;
+        --sidebar-width: 350px;
+    }
+
+    /* Contenedor principal */
+    .crm-container {
+        max-width: 100%;
+        padding: 20px 40px;
+        font-family: 'Segoe UI', system-ui, sans-serif;
+        background-color: #fff;
+    }
+
+    /* --- HEADER --- */
+    .expediente-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 25px;
+        padding-bottom: 15px;
+        border-bottom: 2px solid var(--border-color);
+    }
+
+    .titulo-principal h1 { margin: 0; font-size: 1.8rem; color: var(--primary-color); }
+    .subtitulo { color: var(--text-muted); font-size: 0.95rem; margin-top: 5px; }
+
+    .badge-estado {
+        padding: 8px 16px;
+        border-radius: 4px;
+        font-weight: 700;
+        text-transform: uppercase;
+        font-size: 0.85rem;
+        letter-spacing: 0.5px;
+    }
+    .st-nueva { background: #e3f2fd; color: #0d47a1; border: 1px solid #b3e5fc; }
+    .st-en-diagnostico { background: #fff3cd; color: #856404; border: 1px solid #ffeeba; }
+    .st-en-reparacion { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+    .st-cancelada { background: #e2e3e5; color: #383d41; }
+    
+    /* --- LAYOUT FLEXBOX --- */
+    .expediente-layout {
+        display: flex;
+        flex-direction: row;
+        gap: 30px;
+        align-items: flex-start;
+    }
+
+    .sidebar-col {
+        width: var(--sidebar-width);
+        flex-shrink: 0;
+    }
+
+    .main-col {
+        flex: 1;
+        min-width: 0; /* CRÍTICO para evitar desbordamiento */
+    }
+
+    @media (max-width: 992px) {
+        .expediente-layout { flex-direction: column; }
+        .sidebar-col { width: 100%; }
+    }
+
+    /* --- CARDS --- */
+    .info-card {
+        background: white;
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        margin-bottom: 20px;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.03);
+        overflow: hidden;
+    }
+
+    .card-header {
+        background: #f8f9fa;
+        padding: 12px 15px;
+        border-bottom: 1px solid var(--border-color);
+        font-weight: 600;
+        color: var(--primary-color);
+    }
+
+    .card-body { padding: 15px; }
+
+    /* Datos Sidebar */
+    .data-row { margin-bottom: 12px; }
+    .data-label { display: block; font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700; margin-bottom: 2px;}
+    .data-value { font-size: 0.95rem; color: #333; font-weight: 500; word-wrap: break-word; }
+    .pass-box { background: #fff8e1; padding: 8px; border: 1px dashed #ffc107; color: #b08d00; text-align: center; font-family: monospace; margin-top: 5px; border-radius: 4px;}
+
+    /* --- PESTAÑAS --- */
+    .tabs-wrapper { margin-top: 20px; }
+    
+    .tabs-header {
+        display: flex;
+        border-bottom: 2px solid var(--border-color);
+        margin-bottom: 20px;
+    }
+
+    .tab-link {
+        padding: 12px 20px;
+        background: none;
+        border: none;
+        border-bottom: 3px solid transparent;
+        font-size: 1rem;
+        color: var(--text-muted);
+        cursor: pointer;
+        font-weight: 500;
+        transition: all 0.2s;
+    }
+
+    .tab-link:hover { color: var(--accent-color); background: #f8f9fa; }
+    
+    .tab-link.active {
+        color: var(--accent-color);
+        border-bottom-color: var(--accent-color);
+        font-weight: 700;
+    }
+
+    .tab-content { display: none; animation: fadeIn 0.3s; }
+    .tab-content.active { display: block; }
+
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+
+    /* --- BITÁCORA --- */
+    .bitacora-form {
+        background: #eef2f7;
+        padding: 15px;
+        border-radius: 8px;
+        margin-bottom: 25px;
+        border: 1px solid #dae0e5;
+    }
+    .bitacora-form textarea { width: 100%; border: 1px solid #ced4da; padding: 10px; border-radius: 4px; }
+    .btn-save { background: var(--accent-color); color: white; border: none; padding: 8px 20px; border-radius: 4px; margin-top: 10px; cursor: pointer; float: right; font-weight: 600;}
+
+    .timeline-container { border-left: 2px solid var(--border-color); margin-left: 20px; padding-left: 25px; position: relative; }
+    .timeline-item { position: relative; margin-bottom: 30px; }
+    .timeline-marker { position: absolute; left: -32px; top: 0; width: 14px; height: 14px; background: var(--accent-color); border-radius: 50%; border: 2px solid white; box-shadow: 0 0 0 1px var(--border-color); }
+    .timeline-meta { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 5px; display: flex; justify-content: space-between;}
+    .timeline-text { background: white; padding: 12px; border: 1px solid var(--border-color); border-radius: 6px; position: relative; box-shadow: 0 1px 3px rgba(0,0,0,0.05);}
+    .timeline-text::before { content: ''; position: absolute; left: -6px; top: 10px; width: 10px; height: 10px; background: white; border-left: 1px solid var(--border-color); border-bottom: 1px solid var(--border-color); transform: rotate(45deg); }
+
+    /* --- TABLAS --- */
+    .std-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+    .std-table th { text-align: left; background: #f8f9fa; padding: 12px; border-bottom: 2px solid var(--border-color); color: var(--text-muted); font-weight: 600; }
+    .std-table td { padding: 12px; border-bottom: 1px solid var(--border-color); vertical-align: middle; }
+    .link-action { color: var(--accent-color); text-decoration: none; font-weight: 500; }
+    
+</style>
+
+<div class="crm-container">
+    
+    <!-- HEADER -->
+    <header class="expediente-header">
+        <div class="titulo-principal">
+            <h1>Orden de Servicio #{{ orden.pk }}</h1>
+            <div class="subtitulo">
+                Fecha de Ingreso: {{ orden.fecha_creacion|date:"d M Y, h:i A" }}
+            </div>
+        </div>
+        <div>
+            <span class="badge-estado st-{{ orden.estado|slugify }}">
+                {{ orden.estado }}
+            </span>
+        </div>
+    </header>
+
+    <!-- LAYOUT PRINCIPAL -->
+    <div class="expediente-layout">
+        
+        <!-- SIDEBAR -->
+        <aside class="sidebar-col">
+            <div class="info-card">
+                <div class="card-header"><span>Cliente</span></div>
+                <div class="card-body">
+                    <div class="data-row">
+                        <span class="data-label">Nombre</span>
+                        <div class="data-value">{{ orden.cliente.nombre_completo }}</div>
+                    </div>
+                    <div class="data-row">
+                        <span class="data-label">Contacto</span>
+                        <div class="data-value">{{ orden.cliente.telefono }}</div>
+                        <div class="data-value" style="font-size: 0.85rem;">{{ orden.cliente.email }}</div>
+                    </div>
+                    <div class="data-row">
+                        <span class="data-label">Dirección</span>
+                        <div class="data-value">{{ orden.cliente.ciudad }}</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="info-card">
+                <div class="card-header"><span>Equipo</span></div>
+                <div class="card-body">
+                    <div class="data-row">
+                        <span class="data-label">Equipo</span>
+                        <div class="data-value">{{ orden.equipo.tipo_equipo }}</div>
+                    </div>
+                    <div class="data-row">
+                        <span class="data-label">Marca / Modelo</span>
+                        <div class="data-value">{{ orden.equipo.marca }} {{ orden.equipo.modelo }}</div>
+                    </div>
+                    <div class="data-row">
+                        <span class="data-label">N/S</span>
+                        <div class="data-value">{{ orden.equipo.numero_serie|default:"N/A" }}</div>
+                    </div>
+                    {% if orden.contrasena_equipo %}
+                    <div class="pass-box"><i class="fas fa-key"></i> {{ orden.contrasena_equipo }}</div>
+                    {% else %}
+                    <div class="data-row" style="margin-top:10px;"><span class="data-label">Contraseña</span><div class="data-value text-muted">Sin contraseña</div></div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="info-card">
+                <div class="card-header"><span>Responsables</span></div>
+                <div class="card-body">
+                    <div class="data-row">
+                        <span class="data-label">Recepción</span>
+                        <div class="data-value">{{ orden.asistente_receptor.username }}</div>
+                    </div>
+                    <div class="data-row">
+                        <span class="data-label">Técnico Asignado</span>
+                        <div class="data-value">
+                            {% if orden.tecnico_asignado %}
+                                {{ orden.tecnico_asignado.username }}
+                            {% else %}
+                                <span style="color: #dc3545;">Sin Asignar</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- MAIN CONTENT -->
+        <main class="main-col">
+            
+            <div class="info-card">
+                <div class="card-body">
+                    <span class="data-label">Falla Reportada / Solicitud</span>
+                    <p style="margin-top: 5px; line-height: 1.5;">{{ orden.descripcion_falla|linebreaksbr }}</p>
+                    <hr style="border:0; border-top:1px solid var(--border-color); margin: 15px 0;">
+                    <span class="data-label">Servicios Solicitados</span>
+                    <div style="margin-top: 8px;">
+                        {% for servicio in orden.servicios.all %}
+                            <span style="display:inline-block; background:#e2e6ea; padding:4px 10px; border-radius:20px; font-size:0.85rem; margin-right:5px; margin-bottom:5px;">
+                                {{ servicio.nombre_servicio }}
+                            </span>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <div class="tabs-wrapper">
+                <div class="tabs-header">
+                    <button class="tab-link active" onclick="openTab(event, 'tab-bitacora')">Bitácora</button>
+                    <button class="tab-link" onclick="openTab(event, 'tab-cotizaciones')">Cotizaciones ({{ cotizaciones.count }})</button>
+                    <button class="tab-link" onclick="openTab(event, 'tab-transferencias')">Transferencias ({{ transferencias.count }})</button>
+                </div>
+
+                <!-- BITÁCORA -->
+                <div id="tab-bitacora" class="tab-content active">
+                    <div class="bitacora-form">
+                        <form method="post">
+                            {% csrf_token %}
+                            <label class="data-label" style="margin-bottom:8px;">Agregar Nota o Actualización</label>
+                            {{ form_bitacora.descripcion }}
+                            <div style="overflow: hidden;">
+                                <button type="submit" class="btn-save">Publicar</button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <div class="timeline-container">
+                        {% for entrada in bitacora %}
+                        <div class="timeline-item">
+                            <div class="timeline-marker"></div>
+                            <div class="timeline-meta">
+                                <strong>{{ entrada.usuario.username }}</strong>
+                                <span>{{ entrada.fecha_hora|date:"d M Y, h:i A" }}</span>
+                            </div>
+                            <div class="timeline-text">{{ entrada.descripcion|linebreaksbr }}</div>
+                        </div>
+                        {% empty %}
+                        <p style="color:var(--text-muted); font-style: italic; padding: 20px;">No hay registros.</p>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <!-- COTIZACIONES -->
+                <div id="tab-cotizaciones" class="tab-content">
+                    <div class="info-card">
+                        <table class="std-table">
+                            <thead>
+                                <tr>
+                                    <th>Folio</th>
+                                    <th>Concepto</th>
+                                    <th>Total</th>
+                                    <th>Estado</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for cot in cotizaciones %}
+                                <tr>
+                                    <td>#{{ cot.pk }}</td>
+                                    <td>{{ cot.concepto|truncatechars:50 }}</td>
+                                    <td>${{ cot.costo_refacciones|add:cot.costo_mano_obra }}</td>
+                                    <td>{{ cot.estado }}</td>
+                                    <td style="text-align: right;"><a href="#" class="link-action">Ver Detalle</a></td>
+                                </tr>
+                                {% empty %}
+                                <tr><td colspan="5" style="text-align:center; padding:20px;">Sin cotizaciones.</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- TRANSFERENCIAS (ACTUALIZADO AL MODELO REAL) -->
+                <div id="tab-transferencias" class="tab-content">
+                    <div class="info-card">
+                        <div style="padding: 15px; border-bottom: 1px solid var(--border-color); text-align: right;">
+                            <a href="#" class="btn-save" style="text-decoration:none; font-size:0.85rem;">+ Solicitar Pieza</a>
+                        </div>
+                        <table class="std-table">
+                            <thead>
+                                <tr>
+                                    <th>Folio</th>
+                                    <th>Fecha</th>
+                                    <th>Solicitó</th>
+                                    <th>Autorización</th>
+                                    <th>Referencia / Notas</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for trans in transferencias %}
+                                <tr>
+                                    <td>#{{ trans.pk }}</td>
+                                    <td>{{ trans.fecha_transferencia|date:"d/m/Y" }}</td>
+                                    <td>{{ trans.usuario_solicitante.username|default:"-" }}</td>
+                                    <td>
+                                        {% if trans.usuario_autoriza %}
+                                            <span style="color: green; font-weight: bold;">
+                                                <i class="fas fa-check"></i> {{ trans.usuario_autoriza.username }}
+                                            </span>
+                                        {% else %}
+                                            <span style="color: #f39c12; font-weight: bold;">
+                                                <i class="fas fa-clock"></i> Pendiente
+                                            </span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if trans.documento_referencia %}
+                                            <strong>Ref:</strong> {{ trans.documento_referencia }}<br>
+                                        {% endif %}
+                                        <small class="text-muted">{{ trans.notas|truncatechars:30 }}</small>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr><td colspan="5" style="text-align:center; padding:20px;">No hay transferencias de almacén registradas.</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+    </div>
+</div>
+
+<script>
+    function openTab(evt, tabName) {
+        var tabcontent = document.getElementsByClassName("tab-content");
+        for (var i = 0; i < tabcontent.length; i++) {
+            tabcontent[i].classList.remove("active");
+        }
+        var tablinks = document.getElementsByClassName("tab-link");
+        for (var i = 0; i < tablinks.length; i++) {
+            tablinks[i].classList.remove("active");
+        }
+        document.getElementById(tabName).classList.add("active");
+        evt.currentTarget.classList.add("active");
+    }
+</script>
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+{% endblock %}

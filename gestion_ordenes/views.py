@@ -2,11 +2,13 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.http import JsonResponse
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
+from django.contrib import messages
 from django.views.decorators.http import require_GET
 from django.core.paginator import Paginator
 from django.utils.dateparse import parse_date
 from gestion_clientes.models import Cliente, Equipo
 from .models import OrdenServicio
+from .forms import BitacoraForm
 
 #
 @login_required
@@ -133,7 +135,7 @@ def crear_orden(request):
     }
     return render(request, 'gestion_ordenes/crear_orden.html', context)
 
-
+#
 @login_required
 @require_GET
 def buscar_cliente_api(request):
@@ -162,3 +164,40 @@ def buscar_cliente_api(request):
         })
     
     return JsonResponse({'resultados': resultados})
+
+#
+@login_required
+def detalle_orden(request, orden_id):
+    # 1. Obtener la orden
+    orden = get_object_or_404(OrdenServicio, pk=orden_id)
+    
+    # 2. Consultas de datos relacionados
+    cotizaciones = orden.cotizaciones.all().order_by('-id')
+    bitacora = orden.bitacora.all().order_by('-fecha_hora')
+    
+    # ACTUALIZADO: Consulta basada en tu modelo real de Transferencia
+    # El modelo ya tiene 'ordering' en Meta, pero forzamos el orden por fecha para asegurar consistencia visual
+    transferencias = orden.transferencias.all().select_related('usuario_solicitante', 'usuario_autoriza')
+
+    # 3. Lógica para procesar el formulario de Bitácora
+    if request.method == 'POST':
+        form_bitacora = BitacoraForm(request.POST)
+        if form_bitacora.is_valid():
+            nueva_entrada = form_bitacora.save(commit=False)
+            nueva_entrada.orden = orden
+            nueva_entrada.usuario = request.user
+            nueva_entrada.save()
+            messages.success(request, 'Nota agregada a la bitácora.')
+            return redirect('detalle_orden', orden_id=orden.pk)
+    else:
+        form_bitacora = BitacoraForm()
+
+    context = {
+        'orden': orden,
+        'cotizaciones': cotizaciones,
+        'transferencias': transferencias,
+        'bitacora': bitacora,
+        'form_bitacora': form_bitacora,
+    }
+
+    return render(request, 'gestion_ordenes/detalle_orden.html', context)
