@@ -1,0 +1,102 @@
+{% extends 'base.html' %}
+
+{% block title %}{% if editar %}Editar{% else %}Nueva{% endif %} Cotización - Orden #{{ orden.pk }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .page-header { margin-bottom: 2rem; }
+    .page-title { font-size: 1.8rem; font-weight: 700; color: var(--color-primario); }
+    .subtitle { color: #666; font-size: 1rem; }
+
+    .form-card { background: var(--color-fondo-card); border: 1px solid var(--color-borde); border-radius: 12px; padding: 2.5rem; max-width: 800px; margin: 0 auto; box-shadow: 0 4px 12px rgba(0,0,0,0.04); }
+    
+    .form-group { margin-bottom: 1.5rem; }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+    
+    label { font-weight: 600; display: block; margin-bottom: 0.5rem; color: var(--color-texto-secundario); }
+    input, select, textarea { width: 100%; padding: 0.8rem; border-radius: 8px; border: 1px solid var(--color-borde); background: #fff; }
+    
+    .total-preview { background: #f8f9fa; padding: 1.5rem; border-radius: 8px; text-align: right; margin-top: 1rem; border: 1px dashed var(--color-borde); }
+    .total-amount { font-size: 1.5rem; font-weight: 700; color: #2e7d32; }
+
+    .form-actions { display: flex; justify-content: flex-end; gap: 1rem; margin-top: 2rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+    <div class="page-header" style="text-align: center;">
+        <h1 class="page-title">{% if editar %}Editar{% else %}Nueva{% endif %} Cotización</h1>
+        <div class="subtitle">Orden de Servicio #{{ orden.pk }} - {{ orden.equipo.tipo_equipo }} {{ orden.equipo.marca }}</div>
+    </div>
+
+    <div class="form-card">
+        <form method="POST">
+            {% csrf_token %}
+            
+            <div class="form-group">
+                <label for="{{ form.concepto.id_for_label }}">Concepto / Descripción del Trabajo</label>
+                {{ form.concepto }}
+                {{ form.concepto.errors }}
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="{{ form.proveedor.id_for_label }}">Proveedor (Refacciones)</label>
+                    {{ form.proveedor }}
+                </div>
+                <div class="form-group">
+                    <label for="{{ form.fuente_refaccion.id_for_label }}">Origen de Refacción</label>
+                    {{ form.fuente_refaccion }}
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="{{ form.costo_refacciones.id_for_label }}">Costo Refacciones ($)</label>
+                    {{ form.costo_refacciones }}
+                </div>
+                <div class="form-group">
+                    <label for="{{ form.costo_mano_obra.id_for_label }}">Costo Mano de Obra ($)</label>
+                    {{ form.costo_mano_obra }}
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="{{ form.estado.id_for_label }}">Estado de la Cotización</label>
+                {{ form.estado }}
+            </div>
+
+            <!-- Calculadora en tiempo real -->
+            <div class="total-preview">
+                Total Estimado: <span id="total-display" class="total-amount">$0.00</span>
+            </div>
+
+            <div class="form-actions">
+                <a href="{% url 'detalle_orden' orden.id %}" class="btn btn-secondary" style="text-decoration:none; border:1px solid #ccc; background:#fff; color:#333;">Cancelar</a>
+                <button type="submit" class="btn btn-primary">Guardar Cotización</button>
+            </div>
+        </form>
+    </div>
+
+    <script>
+        // Cálculo simple en tiempo real
+        const inputRef = document.getElementById('{{ form.costo_refacciones.id_for_label }}');
+        const inputMO = document.getElementById('{{ form.costo_mano_obra.id_for_label }}');
+        const display = document.getElementById('total-display');
+
+        function calcularTotal() {
+            const ref = parseFloat(inputRef.value) || 0;
+            const mo = parseFloat(inputMO.value) || 0;
+            const total = ref + mo;
+            display.textContent = '$' + total.toFixed(2);
+        }
+
+        inputRef.addEventListener('input', calcularTotal);
+        inputMO.addEventListener('input', calcularTotal);
+        
+        // Calcular al inicio por si es edición
+        calcularTotal();
+    </script>
+
+{% endblock %}

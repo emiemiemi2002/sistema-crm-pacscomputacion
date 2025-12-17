@@ -9,8 +9,15 @@
     .header-title-group h1 { font-size: 2rem; font-weight: 700; color: var(--color-primario); margin-bottom: 0.25rem; }
     .subtitle { font-size: 0.9rem; font-weight: 500; color: var(--color-texto-secundario); }
     
-    .header-actions { display: flex; gap: 1rem; }
+    .header-actions { display: flex; gap: 1rem; align-items: center; }
     
+    /* Alertas */
+    .messages-container { margin-bottom: 2rem; }
+    .alert { padding: 1rem 1.5rem; margin-bottom: 1rem; border-radius: 8px; font-weight: 500; display: flex; align-items: center; justify-content: space-between; }
+    .alert-success { background-color: #e8f5e9; color: #2e7d32; border: 1px solid #c8e6c9; }
+    .alert-warning { background-color: #fff3e0; color: #ef6c00; border: 1px solid #ffe0b2; }
+    .alert-error { background-color: #ffebee; color: #c62828; border: 1px solid #ffcdd2; }
+
     /* Panel de Info */
     .client-info-panel {
         background-color: var(--color-fondo-card); border: 1px solid var(--color-borde);
@@ -45,38 +52,62 @@
     .data-table td { padding: 1.25rem; font-size: 0.95rem; border-bottom: 1px solid var(--color-borde); }
     .data-table tr:hover { background-color: #fcfcff; }
 
-    /* Tags de Estado (Colores) */
+    /* Tags de Estado */
     .tag { display: inline-flex; align-items: center; padding: 0.3rem 0.8rem; border-radius: 20px; font-weight: 600; font-size: 0.8rem; }
     .tag::before { content: '●'; margin-right: 0.4rem; font-size: 0.9rem; }
     
-    /* Definición de colores para estados */
     .tag.estado-nueva { background-color: #e0f7fa; color: #006064; }
     .tag.estado-diagnostico { background-color: #e3f2fd; color: #0d47a1; }
-    .tag.estado-esperando { background-color: #fff8e1; color: #f57f17; } /* Autorización/Refacción */
+    .tag.estado-esperando { background-color: #fff8e1; color: #f57f17; }
     .tag.estado-reparacion { background-color: #fff3e0; color: #e65100; }
     .tag.estado-finalizada { background-color: #e8f5e9; color: #1b5e20; }
     .tag.estado-entregada { background-color: #f5f5f5; color: #616161; }
     .tag.estado-cancelada { background-color: #ffebee; color: #b71c1c; }
+
+    /* Botón Eliminar Estilo */
+    .btn-danger-outline { border: 1px solid #e57373; color: #d32f2f; background: white; padding: 0.5rem 1rem; border-radius: 6px; text-decoration: none; font-size: 0.9rem; transition: background 0.2s;}
+    .btn-danger-outline:hover { background: #ffebee; }
 
 </style>
 {% endblock %}
 
 {% block content %}
 
+    <!-- MENSAJES FLASH -->
+    {% if messages %}
+        <div class="messages-container">
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags }}">
+                    <span>{{ message }}</span>
+                    <button onclick="this.parentElement.style.display='none'" style="background:none; border:none; color:inherit; cursor:pointer; font-weight:bold;">&times;</button>
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+
     <!-- Encabezado -->
     <div class="main-content-header">
         <div class="header-title-group">
             <h1>{{ cliente.nombre_completo }}</h1>
-            <span class="subtitle">Registrado el: {{ cliente.fecha_registro|date:"d de F, Y" }}</span>
+            <span class="subtitle">Registrado el: {{ cliente.fecha_registro|date:"d \d\e F \d\e Y" }}</span>
         </div>
         <div class="header-actions">
-            <!-- Botones: Apuntan a vistas futuras o edición -->
+            <!-- MEJORA: Botón Eliminar solo para Gerentes -->
+            {% if perms.gestion_clientes.delete_cliente %}
+            <a href="{% url 'eliminar_cliente' cliente.id %}" class="btn-danger-outline" title="Eliminar Cliente">
+                <svg style="width:18px;height:18px; vertical-align:text-bottom;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                Eliminar
+            </a>
+            {% endif %}
+
             <a href="{% url 'editar_cliente' cliente.id %}" class="btn btn-action" style="background-color: white; border: 1px solid var(--color-borde); color: var(--color-texto-principal);">
-                <svg style="width:18px;height:18px" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+                <svg style="width:18px;height:18px;margin-right:5px;vertical-align:text-bottom;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
                 Editar Cliente
             </a>
-            <a href="#" class="btn btn-action">
-                <svg style="width:18px;height:18px" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+            
+            <!-- MEJORA: Botón Crear Orden con pre-llenado -->
+            <a href="{% url 'crear_orden' %}?cliente_id={{ cliente.id }}" class="btn btn-action">
+                <svg style="width:18px;height:18px;margin-right:5px;vertical-align:text-bottom;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
                 Crear Orden
             </a>
         </div>
@@ -104,8 +135,11 @@
             <div class="info-group">
                 <span class="info-label">Dirección</span>
                 <span class="info-value">
-                    {{ cliente.calle|default:"" }} {{ cliente.numero_exterior|default:"" }}, {{ cliente.colonia|default:"" }}<br>
-                    {{ cliente.ciudad|default:"" }}, {{ cliente.estado|default:"" }}
+                    {{ cliente.calle|default:"" }} {{ cliente.numero_exterior|default:"" }}
+                    {% if cliente.numero_interior %}Int. {{ cliente.numero_interior }}{% endif %}
+                    {% if cliente.colonia %}, Col. {{ cliente.colonia }}{% endif %}<br>
+                    {{ cliente.ciudad|default:"" }}{% if cliente.estado %}, {{ cliente.estado }}{% endif %}
+                    {% if cliente.codigo_postal %} C.P. {{ cliente.codigo_postal }}{% endif %}
                 </span>
             </div>
         </div>
@@ -137,19 +171,19 @@
                         <tbody>
                             {% for orden in historial_ordenes %}
                             <tr>
-                                <td><a href="#" style="color:var(--color-enlace);font-weight:bold;">#{{ orden.id }}</a></td>
+                                <td><a href="{% url 'detalle_orden' orden.id %}" style="color:var(--color-enlace);font-weight:bold;">#{{ orden.id }}</a></td>
                                 <td>{{ orden.fecha_creacion|date:"d/m/Y" }}</td>
                                 <td>{{ orden.equipo }}</td>
                                 <td>{{ orden.tecnico_asignado.first_name|default:"--" }}</td>
                                 <td>
-                                    <!-- Lógica simple para asignar color según estado -->
+                                    <!-- Etiquetas de Estado -->
                                     {% if orden.estado == 'Nueva' %}
                                         <span class="tag estado-nueva">{{ orden.estado }}</span>
-                                    {% elif orden.estado == 'En Diagnóstico' %}
+                                    {% elif orden.estado == 'En diagnóstico' or orden.estado == 'En Diagnóstico' %}
                                         <span class="tag estado-diagnostico">{{ orden.estado }}</span>
                                     {% elif 'Esperando' in orden.estado %}
                                         <span class="tag estado-esperando">{{ orden.estado }}</span>
-                                    {% elif orden.estado == 'En Reparación' %}
+                                    {% elif 'Reparación' in orden.estado %}
                                         <span class="tag estado-reparacion">{{ orden.estado }}</span>
                                     {% elif 'Finalizada' in orden.estado %}
                                         <span class="tag estado-finalizada">{{ orden.estado }}</span>
@@ -210,21 +244,16 @@
 {% block extra_js %}
 <script>
     function openTab(evt, tabName) {
-        // Ocultar todos los contenidos
         var i, tabcontent, tablinks;
         tabcontent = document.getElementsByClassName("tab-pane");
         for (i = 0; i < tabcontent.length; i++) {
             tabcontent[i].style.display = "none";
             tabcontent[i].classList.remove("active");
         }
-        
-        // Quitar clase active de los botones
         tablinks = document.getElementsByClassName("tab-link");
         for (i = 0; i < tablinks.length; i++) {
             tablinks[i].classList.remove("active");
         }
-        
-        // Mostrar el actual y añadir clase active
         document.getElementById(tabName).style.display = "block";
         evt.currentTarget.classList.add("active");
     }

@@ -4,7 +4,6 @@
 
 {% block extra_css %}
 <style>
-    /* Estilos específicos UI-OM-03 */
     .page-header { margin-bottom: 2rem; }
     .page-title { font-size: 2rem; font-weight: 700; color: var(--color-primario); }
 
@@ -34,6 +33,9 @@
     #selected-client-card.active { display: block; }
     
     .form-actions { display: flex; justify-content: flex-end; gap: 1rem; margin-top: 2rem; }
+
+    /* Estilos para enlace deshabilitado (Mejora 11) */
+    .link-disabled { color: #999 !important; cursor: not-allowed; text-decoration: none; pointer-events: none; opacity: 0.6; }
 </style>
 {% endblock %}
 
@@ -88,14 +90,24 @@
                 <div class="form-group" style="grid-column: 1 / -1;">
                     <label for="equipo_select">Seleccionar Equipo Registrado *</label>
                     <select name="equipo_id" id="equipo_select" required>
-                        <option value="">-- Primero selecciona un cliente --</option>
+                        <!-- La lógica de backend ya llena esto si hay equipos_pre, pero el texto inicial se maneja en JS o aquí -->
                         {% if equipos_pre %}
+                            <option value="">-- Seleccionar Equipo --</option>
                             {% for equipo in equipos_pre %}
                                 <option value="{{ equipo.id }}">{{ equipo.tipo_equipo }} {{ equipo.marca }} {{ equipo.modelo }} (S/N: {{ equipo.numero_serie }})</option>
                             {% endfor %}
+                        {% else %}
+                            <option value="">-- Primero selecciona un cliente --</option>
                         {% endif %}
                     </select>
-                    <small style="margin-top:0.5rem;">¿Equipo nuevo? <a href="#" id="link-crear-equipo" style="color:var(--color-primario);" target="_blank">Registrar nuevo equipo</a> (Abre en otra pestaña)</small>
+                    
+                    <!-- MEJORA 11: Enlace deshabilitado por defecto -->
+                    <div style="margin-top: 0.5rem;">
+                        <span style="font-size: 0.9rem; color: #555;">¿Equipo nuevo? </span>
+                        <a href="#" id="link-crear-equipo" class="link-disabled" target="_blank" style="color:var(--color-primario); font-weight: 500;">
+                            Registrar nuevo equipo (Abre en otra pestaña)
+                        </a>
+                    </div>
                 </div>
             </div>
         </section>
@@ -155,11 +167,56 @@
         const displayNombre = document.getElementById('display-nombre');
         const displayTel = document.getElementById('display-telefono');
         const btnCambiar = document.getElementById('btn-cambiar-cliente');
-
-        // Buscar el elemento del enlace
         const linkCrearEquipo = document.getElementById('link-crear-equipo');
 
-        // Función para buscar cliente vía AJAX
+        // --- 1. LÓGICA DE INICIALIZACIÓN (CORRECCIÓN IMPORTANTE) ---
+        // Verificamos si ya hay un cliente pre-cargado desde el servidor
+        const clientePreId = clientHiddenInput.value;
+        if (clientePreId) {
+            // Si hay cliente, habilitamos el enlace de crear equipo inmediatamente
+            activarEnlaceEquipo(clientePreId);
+        } else {
+            // Si no, aseguramos que el enlace esté bloqueado
+            desactivarEnlaceEquipo();
+        }
+
+        // --- 2. MANEJO DEL ENLACE "CREAR EQUIPO" (MEJORA 11) ---
+        function activarEnlaceEquipo(clienteId) {
+            if (linkCrearEquipo) {
+                // Quitamos la clase disabled y el pointer-events
+                linkCrearEquipo.classList.remove('link-disabled');
+                linkCrearEquipo.style.pointerEvents = 'auto'; 
+                // Actualizamos el href dinámicamente
+                linkCrearEquipo.href = `{% url 'crear_equipo' %}?cliente_id=${clienteId}&next=crear_orden`;
+            }
+        }
+
+        function desactivarEnlaceEquipo() {
+            if (linkCrearEquipo) {
+                linkCrearEquipo.classList.add('link-disabled');
+                linkCrearEquipo.style.pointerEvents = 'none'; // Bloqueo real a nivel CSS
+                linkCrearEquipo.removeAttribute('href'); // Seguridad extra
+            }
+        }
+        
+        // Listener extra por si alguien fuerza el clic (aunque pointer-events lo evita)
+        linkCrearEquipo.addEventListener('click', function(e) {
+            if (linkCrearEquipo.classList.contains('link-disabled')) {
+                e.preventDefault();
+                alert("Por favor, selecciona un cliente antes de registrar un equipo.");
+            }
+        });
+
+        // --- 3. BÚSQUEDA ---
+        
+        // Habilitar búsqueda con ENTER
+        searchInput.addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') {
+                e.preventDefault(); 
+                btnBuscar.click(); 
+            }
+        });
+
         btnBuscar.addEventListener('click', function() {
             const query = searchInput.value;
             if (query.length < 3) {
@@ -167,11 +224,10 @@
                 return;
             }
 
-            // Llamada AJAX a la API
             fetch(`{% url 'buscar_cliente_api' %}?q=${query}`)
                 .then(response => response.json())
                 .then(data => {
-                    resultsContainer.innerHTML = ''; // Limpiar
+                    resultsContainer.innerHTML = ''; 
                     resultsContainer.style.display = 'block';
 
                     if (data.resultados.length === 0) {
@@ -182,7 +238,6 @@
                             div.classList.add('result-item');
                             div.innerHTML = `<strong>${cliente.nombre}</strong> - ${cliente.telefono}`;
                             
-                            // Al hacer clic en un resultado
                             div.addEventListener('click', function() {
                                 seleccionarCliente(cliente);
                             });
@@ -193,17 +248,17 @@
         });
 
         function seleccionarCliente(cliente) {
-            // 1. Llenar datos del cliente
+            // Llenar datos del cliente
             clientHiddenInput.value = cliente.id;
             displayNombre.textContent = cliente.nombre;
             displayTel.textContent = cliente.telefono;
             
-            // 2. Mostrar tarjeta y bloquear búsqueda
+            // UI Update
             card.style.display = 'block';
             searchInput.disabled = true;
             resultsContainer.style.display = 'none';
 
-            // 3. Llenar el select de equipos
+            // Llenar el select de equipos
             equipoSelect.innerHTML = '<option value="">-- Seleccionar Equipo --</option>';
             if (cliente.equipos.length > 0) {
                 cliente.equipos.forEach(eq => {
@@ -216,13 +271,8 @@
                 equipoSelect.innerHTML = '<option value="">-- Este cliente no tiene equipos registrados --</option>';
             }
 
-            // 4. Actualizar el enlace de "Registrar nuevo equipo"
-            if (linkCrearEquipo) {
-                // Construimos la URL con parámetros:
-                // cliente_id: para que el formulario de equipo ya sepa de quién es.
-                // next: para decirle "cuando termines, vuelve a la vista crear_orden".
-                linkCrearEquipo.href = `{% url 'crear_equipo' %}?cliente_id=${cliente.id}&next=crear_orden`;
-            }
+            // ACTIVAR ENLACE (Lógica corregida)
+            activarEnlaceEquipo(cliente.id);
         }
 
         // Botón "Cambiar" cliente
@@ -232,7 +282,12 @@
             searchInput.disabled = false;
             searchInput.value = '';
             searchInput.focus();
+            
+            // Resetear Equipos
             equipoSelect.innerHTML = '<option value="">-- Primero selecciona un cliente --</option>';
+            
+            // DESACTIVAR ENLACE
+            desactivarEnlaceEquipo();
         });
     });
 </script>

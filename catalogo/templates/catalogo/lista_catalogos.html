@@ -31,17 +31,42 @@
     .table-container { background: var(--color-fondo-card); border: 1px solid var(--color-borde); border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.04); }
     .data-table { width: 100%; border-collapse: collapse; }
     .data-table th { padding: 1rem 1.25rem; text-align: left; background: var(--color-fondo); font-weight: 600; color: var(--color-texto-secundario); text-transform: uppercase; font-size: 0.85rem; }
-    .data-table td { padding: 1.25rem; border-bottom: 1px solid var(--color-borde); font-size: 0.95rem; }
+    .data-table td { padding: 1.25rem; border-bottom: 1px solid var(--color-borde); font-size: 0.95rem; vertical-align: top; }
     .data-table tr:hover { background-color: #fcfcff; }
     .actions-cell { text-align: right; white-space: nowrap; width: 1%; }
     
     .btn-icon { background: none; border: none; cursor: pointer; color: var(--color-texto-secundario); padding: 0.4rem; transition: color 0.2s; }
     .btn-icon:hover { color: var(--color-primario); }
     .btn-icon.delete:hover { color: #d32f2f; }
+    
+    .link-ver-mas { color: var(--color-primario); font-size: 0.85rem; cursor: pointer; text-decoration: underline; margin-left: 5px; }
 
     /* Mensajes */
     .alert { padding: 1rem; margin-bottom: 1rem; border-radius: 8px; font-weight: 500; }
     .alert-success { background-color: #e8f5e9; color: #1b5e20; border: 1px solid #c8e6c9; }
+
+    /* --- ESTILOS DEL MODAL (NUEVO) --- */
+    .modal-overlay {
+        display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(0, 0, 0, 0.5); z-index: 1000; justify-content: center; align-items: center;
+        animation: fadeIn 0.2s ease-out;
+    }
+    .modal-card {
+        background: white; width: 90%; max-width: 500px; padding: 2rem; border-radius: 12px;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.1); position: relative;
+        animation: slideUp 0.3s ease-out;
+    }
+    .modal-close {
+        position: absolute; top: 1rem; right: 1rem; background: none; border: none;
+        font-size: 1.5rem; color: #aaa; cursor: pointer;
+    }
+    .modal-close:hover { color: #333; }
+    .modal-title { font-size: 1.4rem; font-weight: 700; color: var(--color-primario); margin-bottom: 0.5rem; }
+    .modal-cost { font-size: 1.1rem; font-weight: 600; color: #2e7d32; margin-bottom: 1.5rem; }
+    .modal-desc-box { background: #f9f9f9; padding: 1rem; border-radius: 8px; border: 1px solid #eee; line-height: 1.6; color: #444; max-height: 300px; overflow-y: auto; }
+
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
 </style>
 {% endblock %}
 
@@ -51,7 +76,7 @@
         <h1 class="page-title">Gestión de Catálogos</h1>
     </div>
 
-    <!-- Mensajes de Django (Éxito/Error) -->
+    <!-- Mensajes de Django -->
     {% if messages %}
         {% for message in messages %}
             <div class="alert alert-{{ message.tags }}">
@@ -73,7 +98,7 @@
             <div class="tab-section-header">
                 <h2>Lista de Proveedores</h2>
                 <a href="{% url 'crear_proveedor' %}" class="btn btn-action">
-                    <svg style="width:20px;height:20px" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                    <svg style="width:20px;height:20px; vertical-align:bottom; margin-right:5px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
                     Agregar Proveedor
                 </a>
             </div>
@@ -117,12 +142,12 @@
             </div>
         </div>
 
-        <!-- PESTAÑA SERVICIOS -->
+        <!-- PESTAÑA SERVICIOS (MEJORADA) -->
         <div id="servicios" class="tab-pane {% if active_tab == 'servicios' %}active{% endif %}">
             <div class="tab-section-header">
                 <h2>Lista de Tipos de Servicio</h2>
                 <a href="{% url 'crear_servicio' %}" class="btn btn-action">
-                    <svg style="width:20px;height:20px" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                    <svg style="width:20px;height:20px; vertical-align:bottom; margin-right:5px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
                     Agregar Servicio
                 </a>
             </div>
@@ -132,17 +157,30 @@
                     <table class="data-table">
                         <thead>
                             <tr>
-                                <th>Nombre Servicio</th>
-                                <th>Descripción</th>
-                                <th>Costo Estándar</th>
-                                <th>Acciones</th>
+                                <th style="width: 25%;">Nombre Servicio</th>
+                                <th style="width: 50%;">Descripción</th>
+                                <th style="width: 15%;">Costo Estándar</th>
+                                <th style="width: 10%;">Acciones</th>
                             </tr>
                         </thead>
                         <tbody>
                             {% for s in tipos_servicio %}
                             <tr>
-                                <td><strong>{{ s.nombre_servicio }}</strong></td>
-                                <td style="max-width: 300px;">{{ s.descripcion|default:"--"|truncatechars:50 }}</td>
+                                <td>
+                                    <!-- Hacemos el nombre clicable para abrir detalle también -->
+                                    <a href="javascript:void(0)" onclick="mostrarDetalle('{{ s.nombre_servicio|escapejs }}', '{{ s.costo_estandar }}', '{{ s.descripcion|default:''|escapejs }}')" style="color:var(--color-primario); font-weight:600; text-decoration:none;">
+                                        {{ s.nombre_servicio }}
+                                    </a>
+                                </td>
+                                <td>
+                                    <!-- Texto truncado a 60 caracteres -->
+                                    {{ s.descripcion|default:"--"|truncatechars:60 }}
+                                    
+                                    <!-- Si la descripción es larga (más de 60 chars), mostramos 'Ver más' -->
+                                    {% if s.descripcion|length > 60 %}
+                                        <span class="link-ver-mas" onclick="mostrarDetalle('{{ s.nombre_servicio|escapejs }}', '{{ s.costo_estandar }}', '{{ s.descripcion|escapejs }}')">Ver detalle completo</span>
+                                    {% endif %}
+                                </td>
                                 <td>${{ s.costo_estandar }}</td>
                                 <td class="actions-cell">
                                     <a href="{% url 'editar_servicio' s.id %}" class="btn-icon" title="Editar">
@@ -166,25 +204,69 @@
 
     </div>
 
+    <!-- MODAL DE DETALLE (NUEVO) -->
+    <div id="modal-detalle" class="modal-overlay" onclick="cerrarModal(event)">
+        <div class="modal-card">
+            <button class="modal-close" onclick="cerrarModal(event, true)">&times;</button>
+            <h3 id="modal-titulo" class="modal-title">Título del Servicio</h3>
+            <div id="modal-costo" class="modal-cost">$0.00</div>
+            
+            <label style="font-weight:600; font-size:0.85rem; color:#666; display:block; margin-bottom:0.5rem;">DESCRIPCIÓN COMPLETA:</label>
+            <div id="modal-descripcion" class="modal-desc-box">
+                <!-- El contenido se llena con JS -->
+            </div>
+            
+            <div style="margin-top:1.5rem; text-align:right;">
+                <button onclick="cerrarModal(event, true)" class="btn btn-secondary" style="border:1px solid #ccc;">Cerrar</button>
+            </div>
+        </div>
+    </div>
+
 {% endblock %}
 
 {% block extra_js %}
 <script>
+    // Función para manejar pestañas
     function openTab(evt, tabName) {
-        // Ocultar tabs
         var tabcontent = document.getElementsByClassName("tab-pane");
         for (var i = 0; i < tabcontent.length; i++) {
             tabcontent[i].style.display = "none";
             tabcontent[i].classList.remove("active");
         }
-        // Desactivar botones
         var tablinks = document.getElementsByClassName("tab-link");
         for (var i = 0; i < tablinks.length; i++) {
             tablinks[i].classList.remove("active");
         }
-        // Activar actual
         document.getElementById(tabName).style.display = "block";
         evt.currentTarget.classList.add("active");
+    }
+
+    // --- FUNCIONES DEL MODAL (NUEVO) ---
+    
+    function mostrarDetalle(titulo, costo, descripcion) {
+        // Llenar datos
+        document.getElementById('modal-titulo').innerText = titulo;
+        document.getElementById('modal-costo').innerText = '$' + costo;
+        // Manejar descripción vacía
+        if (!descripcion || descripcion === 'None') {
+            document.getElementById('modal-descripcion').innerText = "Sin descripción disponible.";
+            document.getElementById('modal-descripcion').style.fontStyle = 'italic';
+            document.getElementById('modal-descripcion').style.color = '#999';
+        } else {
+            document.getElementById('modal-descripcion').innerText = descripcion;
+            document.getElementById('modal-descripcion').style.fontStyle = 'normal';
+            document.getElementById('modal-descripcion').style.color = '#444';
+        }
+
+        // Mostrar modal (Flex para centrar)
+        document.getElementById('modal-detalle').style.display = 'flex';
+    }
+
+    function cerrarModal(event, force) {
+        // Cerrar solo si se clickea el fondo (overlay) o el botón de cerrar explícitamente
+        if (force || event.target.id === 'modal-detalle') {
+            document.getElementById('modal-detalle').style.display = 'none';
+        }
     }
 </script>
 {% endblock %}

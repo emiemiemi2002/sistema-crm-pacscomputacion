@@ -34,9 +34,11 @@
 
     .form-actions { display: flex; justify-content: flex-end; gap: 1rem; margin-top: 2rem; border-top: 1px solid var(--color-borde); padding-top: 1.5rem; }
 
-    /* Mensajes de alerta */
+    /* Mensajes de alerta (Solo para errores de validación en esta vista) */
     .alert { padding: 1rem; margin-bottom: 1.5rem; border-radius: 8px; max-width: 800px; margin-left: auto; margin-right: auto; }
     .alert-error { background-color: #ffebee; color: #b71c1c; border: 1px solid #ef9a9a; }
+    /* Success se maneja en el detalle ahora, pero lo dejamos por seguridad */
+    .alert-success { background-color: #e8f5e9; color: #2e7d32; border: 1px solid #c8e6c9; }
 
     @media (max-width: 768px) {
         .form-row { grid-template-columns: 1fr; gap: 0; }
@@ -50,6 +52,7 @@
         <h1 class="page-title">{% if cliente %}Editar Cliente{% else %}Registrar Nuevo Cliente{% endif %}</h1>
     </div>
 
+    <!-- Mantenemos esto para mostrar ERRORES de validación (ej. Teléfono duplicado) -->
     {% if messages %}
         {% for message in messages %}
             <div class="alert alert-{{ message.tags }}">

@@ -1,58 +1,79 @@
+import unicodedata
 from django.shortcuts import render, redirect, get_object_or_404
-#
 from django.core.paginator import Paginator
-from django.db.models import Q
+from django.db.models import ProtectedError
 from django.contrib import messages
-from django.contrib.auth.decorators import login_required
+from django.contrib.auth.decorators import login_required, permission_required
 from .models import Cliente, Equipo
-from gestion_ordenes.models import OrdenServicio
 
-#
+# --- UTILIDADES PARA BÚSQUEDA INTELIGENTE ---
+
+def normalizar_texto(texto):
+    """
+    Convierte el texto a minúsculas y elimina acentos (tildes).
+    Ejemplo: 'García' -> 'garcia', 'Árbol' -> 'arbol', 'Ana' -> 'ana'
+    """
+    if not texto:
+        return ''
+    # NFD separa los caracteres de sus tildes. 'Mn' es la categoría de marcas de acento.
+    return ''.join(c for c in unicodedata.normalize('NFD', str(texto).lower()) if unicodedata.category(c) != 'Mn')
+
+# --- VISTAS ---
+
 @login_required
 def lista_clientes(request):
     """
-    Vista para listar clientes con funcionalidad de búsqueda y paginación.
+    Vista para listar clientes con búsqueda "Inteligente" en Python.
+    Resuelve inconsistencias de acentos y mayúsculas.
     """
-    # Obtener el término de búsqueda de la URL (ej. ?q=Juan)
-    query = request.GET.get('q')
+    query = request.GET.get('q', '').strip()
     
-    # Filtrar clientes si hay búsqueda, sino traer todos
-    if query:
-        clientes_list = Cliente.objects.filter(
-            Q(nombre_completo__icontains=query) |
-            Q(telefono__icontains=query) |
-            Q(rfc__icontains=query) |
-            Q(email__icontains=query)
-        ).distinct()
-    else:
-        clientes_list = Cliente.objects.all()
+    # Obtenemos todos los clientes base (optimizamos trayendo solo lo necesario si fuera mucha data, 
+    # pero para un CRM de residencia, traer los objetos completos está bien)
+    todos_clientes = Cliente.objects.all().order_by('-fecha_registro')
+    
+    # Lista para almacenar los resultados filtrados
+    clientes_filtrados = []
 
-    # Configurar paginación (10 clientes por página)
-    paginator = Paginator(clientes_list, 10)
+    if query:
+        # 1. Normalizamos el término de búsqueda (input del usuario)
+        query_norm = normalizar_texto(query)
+        
+        # 2. Iteramos y comparamos con datos normalizados
+        # Esto asegura que "garcia" coincida con "García" almacenado en BD.
+        for cliente in todos_clientes:
+            # Normalizamos los campos del cliente para la comparación
+            nombre_norm = normalizar_texto(cliente.nombre_completo)
+            telefono_norm = normalizar_texto(cliente.telefono)
+            email_norm = normalizar_texto(cliente.email)
+            rfc_norm = normalizar_texto(cliente.rfc)
+            
+            # Verificamos si el término buscado está en alguno de los campos clave
+            if (query_norm in nombre_norm or 
+                query_norm in telefono_norm or 
+                query_norm in email_norm or 
+                query_norm in rfc_norm):
+                clientes_filtrados.append(cliente)
+    else:
+        # Si no hay búsqueda, mostramos todos
+        clientes_filtrados = todos_clientes
+
+    # 3. Paginación (Usamos la lista filtrada)
+    paginator = Paginator(clientes_filtrados, 10)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
 
     context = {
         'page_obj': page_obj,
-        'query': query, # Para mantener el texto en la caja de búsqueda
+        'query': query,
     }
-    
     return render(request, 'gestion_clientes/lista_clientes.html', context)
 
-#
 @login_required
 def detalle_cliente(request, id):
-    """
-    Muestra la información detallada de un cliente, sus equipos y su historial de órdenes.
-    """
-    # Obtiene el cliente o devuelve un error 404 si no existe
     cliente = get_object_or_404(Cliente, pk=id)
-    
-    # Obtener todas las órdenes asociadas a este cliente, ordenadas de la más reciente a la más antigua
-    # Usamos 'ordenes' porque definimos related_name='ordenes' en el modelo OrdenServicio
+    # Ordenar historial de más reciente a más antiguo
     historial_ordenes = cliente.ordenes.all().order_by('-fecha_creacion')
-    
-    # Obtener los equipos registrados
     equipos = cliente.equipos.all()
 
     context = {
@@ -60,24 +81,16 @@ def detalle_cliente(request, id):
         'historial_ordenes': historial_ordenes,
         'equipos': equipos,
     }
-    
     return render(request, 'gestion_clientes/detalle_cliente.html', context)
 
-#
 @login_required
 def crear_equipo(request):
-    """
-    Vista para registrar un nuevo equipo.
-    Puede recibir un 'cliente_id' en la URL para pre-seleccionar el cliente.
-    """
-    # Si venimos de la vista 'crear_orden', traeremos el ID del cliente
     cliente_preseleccionado_id = request.GET.get('cliente_id')
     cliente_obj = None
     if cliente_preseleccionado_id:
         cliente_obj = get_object_or_404(Cliente, pk=cliente_preseleccionado_id)
 
     if request.method == 'POST':
-        # Procesar el formulario
         cliente_id = request.POST.get('cliente_id')
         tipo_equipo = request.POST.get('tipo_equipo')
         marca = request.POST.get('marca')
@@ -86,7 +99,6 @@ def crear_equipo(request):
 
         if cliente_id and tipo_equipo and marca and modelo:
             cliente = get_object_or_404(Cliente, pk=cliente_id)
-            
             nuevo_equipo = Equipo(
                 cliente=cliente,
                 tipo_equipo=tipo_equipo,
@@ -95,27 +107,20 @@ def crear_equipo(request):
                 numero_serie=serie
             )
             nuevo_equipo.save()
-            
             messages.success(request, f'Equipo {marca} {modelo} registrado correctamente.')
 
-            # Lógica de redirección inteligente
+            # Redirección inteligente
             next_url = request.GET.get('next')
             if next_url == 'crear_orden':
-                # Si venía de crear orden, regresamos ahí con el cliente pre-seleccionado
+                # Volver a la creación de orden manteniendo el cliente seleccionado
                 return redirect(f'/ordenes/crear/?cliente_id={cliente.id}')
-            elif next_url == 'detalle_cliente':
-                 return redirect('detalle_cliente', id=cliente.id)
             
-            # Por defecto, ir al detalle del cliente dueño del equipo
             return redirect('detalle_cliente', id=cliente.id)
 
-    # GET: Mostrar formulario
-    # Si no hay cliente preseleccionado, necesitamos la lista completa para el select
     clientes_list = None
     if not cliente_obj:
         clientes_list = Cliente.objects.all().order_by('nombre_completo')
 
-    # Obtenemos las opciones del modelo para el tipo de equipo
     tipos_equipo = Equipo.TIPO_EQUIPO_OPCIONES
 
     context = {
@@ -127,19 +132,12 @@ def crear_equipo(request):
 
 @login_required
 def crear_cliente(request):
-    """
-    Vista para registrar un nuevo cliente.
-    """
-    values = None # Inicializamos 'values' como un diccionario vacío por defecto
-
+    values = None
     if request.method == 'POST':
-        # Captura de datos del formulario
         nombre = request.POST.get('nombre_completo')
         telefono = request.POST.get('telefono')
         email = request.POST.get('email')
         rfc = request.POST.get('rfc')
-        
-        # Dirección
         calle = request.POST.get('calle')
         num_ext = request.POST.get('numero_exterior')
         num_int = request.POST.get('numero_interior')
@@ -148,29 +146,17 @@ def crear_cliente(request):
         ciudad = request.POST.get('ciudad')
         estado = request.POST.get('estado')
 
-        # Guardamos lo enviado en 'values' para re-llenar el formulario si hay error
         values = request.POST
 
-        # Validación básica (nombre y teléfono obligatorios)
         if nombre and telefono:
-            # Verificar duplicados (opcional pero recomendado)
             if Cliente.objects.filter(telefono=telefono).exists():
                 messages.error(request, 'Ya existe un cliente con ese número de teléfono.')
-                # Retornamos aquí con los valores para no perder lo escrito
                 return render(request, 'gestion_clientes/cliente_form.html', {'values': values})
 
             nuevo_cliente = Cliente(
-                nombre_completo=nombre,
-                telefono=telefono,
-                email=email,
-                rfc=rfc,
-                calle=calle,
-                numero_exterior=num_ext,
-                numero_interior=num_int,
-                colonia=colonia,
-                codigo_postal=cp,
-                ciudad=ciudad,
-                estado=estado
+                nombre_completo=nombre, telefono=telefono, email=email, rfc=rfc,
+                calle=calle, numero_exterior=num_ext, numero_interior=num_int,
+                colonia=colonia, codigo_postal=cp, ciudad=ciudad, estado=estado
             )
             nuevo_cliente.save()
             messages.success(request, f'Cliente "{nombre}" creado exitosamente.')
@@ -178,24 +164,16 @@ def crear_cliente(request):
         else:
             messages.error(request, 'Por favor completa los campos obligatorios (*).')
 
-    # Renderizamos la plantilla pasando 'values' (vacío si es GET, con datos si hubo error en POST)
     return render(request, 'gestion_clientes/cliente_form.html', {'values': values})
 
 @login_required
 def editar_cliente(request, id):
-    """
-    Vista para actualizar los datos de un cliente existente.
-    """
     cliente = get_object_or_404(Cliente, pk=id)
-
     if request.method == 'POST':
-        # Actualización de campos
         cliente.nombre_completo = request.POST.get('nombre_completo')
         cliente.telefono = request.POST.get('telefono')
         cliente.email = request.POST.get('email')
         cliente.rfc = request.POST.get('rfc')
-        
-        # Dirección
         cliente.calle = request.POST.get('calle')
         cliente.numero_exterior = request.POST.get('numero_exterior')
         cliente.numero_interior = request.POST.get('numero_interior')
@@ -211,5 +189,26 @@ def editar_cliente(request, id):
         else:
             messages.error(request, 'El nombre y teléfono no pueden estar vacíos.')
 
-    # Renderizar el mismo formulario pero con el objeto 'cliente' para pre-llenar datos
     return render(request, 'gestion_clientes/cliente_form.html', {'cliente': cliente})
+
+@login_required
+@permission_required('gestion_clientes.delete_cliente', raise_exception=True)
+def eliminar_cliente(request, id):
+    """
+    Vista para eliminar un cliente. Requiere permiso de Gerente.
+    Maneja ProtectedError si el cliente tiene órdenes asociadas.
+    """
+    cliente = get_object_or_404(Cliente, pk=id)
+
+    if request.method == 'POST':
+        try:
+            nombre = cliente.nombre_completo
+            cliente.delete()
+            messages.success(request, f'Cliente "{nombre}" eliminado correctamente.')
+            return redirect('lista_clientes')
+        except ProtectedError:
+            # Capturamos el error de integridad referencial (on_delete=PROTECT en OrdenServicio)
+            messages.error(request, f'No se puede eliminar a "{cliente.nombre_completo}" porque tiene historial de Órdenes de Servicio o Equipos activos. El sistema protege estos datos.')
+            return redirect('detalle_cliente', id=cliente.id)
+
+    return render(request, 'gestion_clientes/cliente_confirm_delete.html', {'cliente': cliente})

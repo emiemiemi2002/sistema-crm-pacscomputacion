@@ -1,0 +1,165 @@
+{% extends 'base.html' %}
+
+{% block title %}{% if editar %}Gestionar{% else %}Solicitar{% endif %} Transferencia - Orden #{{ orden.pk }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .page-header { margin-bottom: 2rem; }
+    .page-title { font-size: 1.8rem; font-weight: 700; color: var(--color-primario); }
+    .subtitle { color: #666; font-size: 1rem; }
+
+    .form-card { background: var(--color-fondo-card); border: 1px solid var(--color-borde); border-radius: 12px; padding: 2.5rem; max-width: 900px; margin: 0 auto; box-shadow: 0 4px 12px rgba(0,0,0,0.04); }
+    
+    /* Header Form */
+    .form-header-section { margin-bottom: 2rem; padding-bottom: 1.5rem; border-bottom: 1px dashed var(--color-borde); }
+    
+    /* Items Table */
+    .items-table { width: 100%; border-collapse: collapse; margin-bottom: 1rem; }
+    .items-table th { text-align: left; padding: 0.8rem; background: #f8f9fa; color: var(--color-texto-secundario); font-size: 0.85rem; border-bottom: 2px solid var(--color-borde); }
+    .items-table td { padding: 0.8rem; border-bottom: 1px solid #eee; vertical-align: top; }
+    
+    .item-row input { width: 100%; }
+    
+    /* Botones */
+    .btn-add-row { background: #e3f2fd; color: #1565c0; border: 1px dashed #1565c0; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; font-size: 0.9rem; transition: background 0.2s; }
+    .btn-add-row:hover { background: #bbdefb; }
+    
+    .form-actions { display: flex; justify-content: flex-end; gap: 1rem; margin-top: 2rem; border-top: 1px solid var(--color-borde); padding-top: 1.5rem; }
+    
+    /* Autorización box */
+    .auth-box { background: #fff3cd; border: 1px solid #ffeeba; padding: 1rem; border-radius: 8px; margin-bottom: 2rem; display: flex; justify-content: space-between; align-items: center; color: #856404; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+    <div class="page-header" style="text-align: center;">
+        <h1 class="page-title">{% if editar %}Gestionar{% else %}Solicitar{% endif %} Transferencia</h1>
+        <div class="subtitle">Orden de Servicio #{{ orden.pk }} - {{ orden.equipo.tipo_equipo }}</div>
+    </div>
+
+    <div class="form-card">
+        <form method="POST" id="transferencia-form">
+            {% csrf_token %}
+            
+            <!-- Bloque de Autorización (Solo Gerentes en Edición) -->
+            {% if editar and perms.gestion_ordenes.change_transferencia %}
+                <div class="auth-box">
+                    <div>
+                        <strong>Estado de Autorización:</strong>
+                        {% if transferencia.usuario_autoriza %}
+                            <span style="color: green; font-weight: bold;">AUTORIZADO por {{ transferencia.usuario_autoriza.username }}</span>
+                        {% else %}
+                            <span style="color: #d32f2f; font-weight: bold;">PENDIENTE</span>
+                        {% endif %}
+                    </div>
+                    
+                    {% if not transferencia.usuario_autoriza %}
+                    <button type="submit" name="btn_autorizar" value="1" class="btn btn-primary" style="background-color: #28a745; border-color: #28a745;">
+                        <i class="fas fa-check"></i> Autorizar Ahora
+                    </button>
+                    {% endif %}
+                </div>
+            {% endif %}
+
+            <!-- 1. Cabecera -->
+            <div class="form-header-section">
+                <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 1.5rem;">
+                    <div>
+                        <label style="font-weight:600; margin-bottom:0.5rem; display:block;">Doc. Referencia</label>
+                        {{ form.documento_referencia }}
+                    </div>
+                    <div>
+                        <label style="font-weight:600; margin-bottom:0.5rem; display:block;">Notas / Justificación</label>
+                        {{ form.notas }}
+                    </div>
+                </div>
+            </div>
+
+            <!-- 2. Ítems (Formset) -->
+            <h3 style="font-size:1.1rem; color:var(--color-primario); margin-bottom:1rem;">Ítems a Solicitar</h3>
+            
+            {{ formset.management_form }}
+            
+            <table class="items-table" id="items-table">
+                <thead>
+                    <tr>
+                        <th style="width: 50%;">Descripción del Ítem *</th>
+                        <th style="width: 15%;">Cantidad</th>
+                        <th style="width: 25%;">No. Serie (Opcional)</th>
+                        <th style="width: 10%;">Eliminar</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for form_item in formset %}
+                        <tr class="item-row">
+                            <!-- Campos ocultos (ID) necesarios para editar -->
+                            {% for hidden in form_item.hidden_fields %}
+                                {{ hidden }}
+                            {% endfor %}
+                            
+                            <td>
+                                {{ form_item.descripcion_item }}
+                                {% if form_item.descripcion_item.errors %}<small style="color:red;">{{ form_item.descripcion_item.errors.0 }}</small>{% endif %}
+                            </td>
+                            <td>{{ form_item.cantidad }}</td>
+                            <td>{{ form_item.numero_serie }}</td>
+                            <td style="text-align: center;">
+                                {{ form_item.DELETE }}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+
+            <button type="button" id="add-item-btn" class="btn-add-row">+ Agregar otro ítem</button>
+
+            <div class="form-actions">
+                <a href="{% url 'detalle_orden' orden.id %}" class="btn btn-secondary" style="text-decoration:none; border:1px solid #ccc; background:#fff; color:#333;">Cancelar</a>
+                <button type="submit" class="btn btn-primary">Guardar Transferencia</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Script para Formset Dinámico -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const addBtn = document.getElementById('add-item-btn');
+            const totalForms = document.getElementById('id_items-TOTAL_FORMS');
+            const tableBody = document.querySelector('#items-table tbody');
+
+            addBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                
+                let formCount = parseInt(totalForms.value);
+                const firstRow = tableBody.querySelector('.item-row');
+                
+                // Clonamos la primera fila
+                const newRow = firstRow.cloneNode(true);
+                
+                // Limpiamos los valores de los inputs en la nueva fila y actualizamos índices
+                const inputs = newRow.querySelectorAll('input');
+                inputs.forEach(input => {
+                    // Reemplazamos el índice (items-0-campo -> items-1-campo)
+                    if (input.name) {
+                        input.name = input.name.replace(`items-0`, `items-${formCount}`);
+                        input.id = input.id.replace(`items-0`, `items-${formCount}`);
+                    }
+                    // Limpiar valor (excepto checkbox DELETE)
+                    if (input.type !== 'checkbox' && input.type !== 'hidden') {
+                        input.value = '';
+                    }
+                    if (input.type === 'number') input.value = '1';
+                    if (input.type === 'checkbox') input.checked = false;
+                });
+
+                // Añadimos al DOM
+                tableBody.appendChild(newRow);
+                
+                // Actualizamos el contador total
+                totalForms.value = formCount + 1;
+            });
+        });
+    </script>
+
+{% endblock %}
