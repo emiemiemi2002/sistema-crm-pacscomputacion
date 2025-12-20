@@ -4,99 +4,187 @@
 
 {% block extra_css %}
 <style>
-    .page-header { margin-bottom: 2rem; }
+    /* Cabecera */
+    .page-header { margin-bottom: 2rem; text-align: center; }
     .page-title { font-size: 1.8rem; font-weight: 700; color: var(--color-primario); }
-    .subtitle { color: #666; font-size: 1rem; }
+    .subtitle { color: #666; font-size: 1rem; margin-top: 0.5rem; }
 
-    .form-card { background: var(--color-fondo-card); border: 1px solid var(--color-borde); border-radius: 12px; padding: 2.5rem; max-width: 800px; margin: 0 auto; box-shadow: 0 4px 12px rgba(0,0,0,0.04); }
+    /* Tarjeta Principal */
+    .form-card { 
+        background: var(--color-fondo-card); border: 1px solid var(--color-borde); 
+        border-radius: 12px; padding: 2.5rem; max-width: 850px; margin: 0 auto; 
+        box-shadow: 0 4px 12px rgba(0,0,0,0.04); 
+    }
     
+    /* Grupos de Formulario */
     .form-group { margin-bottom: 1.5rem; }
     .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
     
-    label { font-weight: 600; display: block; margin-bottom: 0.5rem; color: var(--color-texto-secundario); }
-    input, select, textarea { width: 100%; padding: 0.8rem; border-radius: 8px; border: 1px solid var(--color-borde); background: #fff; }
+    label { font-weight: 600; display: block; margin-bottom: 0.5rem; color: var(--color-texto-secundario); font-size: 0.9rem; }
     
-    .total-preview { background: #f8f9fa; padding: 1.5rem; border-radius: 8px; text-align: right; margin-top: 1rem; border: 1px dashed var(--color-borde); }
-    .total-amount { font-size: 1.5rem; font-weight: 700; color: #2e7d32; }
+    /* Indicador de Requerido */
+    label.required::after { content: " *"; color: #d32f2f; }
+    
+    /* Inputs */
+    input, select, textarea { 
+        width: 100%; padding: 0.8rem; border-radius: 8px; 
+        border: 1px solid var(--color-borde); background: #fff; 
+        font-family: inherit; font-size: 0.95rem; transition: border-color 0.2s;
+    }
+    input:focus, select:focus, textarea:focus { border-color: var(--color-primario); outline: none; }
+    input:disabled, select:disabled { background-color: #f5f5f5; color: #999; cursor: not-allowed; }
 
-    .form-actions { display: flex; justify-content: flex-end; gap: 1rem; margin-top: 2rem; }
+    /* Sección de Total */
+    .total-preview { 
+        background: #f0fdf4; border: 1px dashed #22c55e; padding: 1.5rem; 
+        border-radius: 8px; text-align: right; margin-top: 2rem; 
+        display: flex; justify-content: flex-end; align-items: center; gap: 1rem;
+    }
+    .total-label { font-size: 1.1rem; color: #166534; font-weight: 600; }
+    .total-amount { font-size: 1.8rem; font-weight: 700; color: #15803d; }
+
+    /* Acciones */
+    .form-actions { display: flex; justify-content: flex-end; gap: 1rem; margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid #eee; }
+    
+    /* Mensajes de error */
+    .error-box { max-width: 850px; margin: 0 auto 1.5rem; padding: 1rem; background: #ffebee; border: 1px solid #ef9a9a; border-radius: 8px; color: #b71c1c; }
+    .field-error { color: #d32f2f; font-size: 0.85rem; margin-top: 0.3rem; display: block; }
 </style>
 {% endblock %}
 
 {% block content %}
 
-    <div class="page-header" style="text-align: center;">
+    <div class="page-header">
         <h1 class="page-title">{% if editar %}Editar{% else %}Nueva{% endif %} Cotización</h1>
         <div class="subtitle">Orden de Servicio #{{ orden.pk }} - {{ orden.equipo.tipo_equipo }} {{ orden.equipo.marca }}</div>
     </div>
 
+    <!-- Errores Globales -->
+    {% if form.non_field_errors %}
+    <div class="error-box">
+        {{ form.non_field_errors }}
+    </div>
+    {% endif %}
+
     <div class="form-card">
-        <form method="POST">
+        <form method="POST" id="cotizacion-form">
             {% csrf_token %}
             
+            <!-- Concepto -->
             <div class="form-group">
-                <label for="{{ form.concepto.id_for_label }}">Concepto / Descripción del Trabajo</label>
+                <label for="id_concepto" class="required">Concepto / Descripción del Trabajo</label>
                 {{ form.concepto }}
-                {{ form.concepto.errors }}
+                {% if form.concepto.errors %}
+                    <span class="field-error">{{ form.concepto.errors.0 }}</span>
+                {% endif %}
             </div>
 
+            <!-- Proveedores y Origen (Lógica Dinámica) -->
             <div class="form-row">
                 <div class="form-group">
-                    <label for="{{ form.proveedor.id_for_label }}">Proveedor (Refacciones)</label>
-                    {{ form.proveedor }}
-                </div>
-                <div class="form-group">
-                    <label for="{{ form.fuente_refaccion.id_for_label }}">Origen de Refacción</label>
+                    <label for="id_fuente_refaccion" class="required">Origen de Refacción</label>
                     {{ form.fuente_refaccion }}
+                    {% if form.fuente_refaccion.errors %}
+                        <span class="field-error">{{ form.fuente_refaccion.errors.0 }}</span>
+                    {% endif %}
+                </div>
+                <div class="form-group">
+                    <label id="label_proveedor" for="id_proveedor">Proveedor (Refacciones)</label>
+                    {{ form.proveedor }}
+                    {% if form.proveedor.errors %}
+                        <span class="field-error">{{ form.proveedor.errors.0 }}</span>
+                    {% endif %}
                 </div>
             </div>
 
+            <!-- Costos -->
             <div class="form-row">
                 <div class="form-group">
-                    <label for="{{ form.costo_refacciones.id_for_label }}">Costo Refacciones ($)</label>
+                    <label for="id_costo_refacciones" class="required">Costo Refacciones ($)</label>
                     {{ form.costo_refacciones }}
+                    {% if form.costo_refacciones.errors %}
+                        <span class="field-error">{{ form.costo_refacciones.errors.0 }}</span>
+                    {% endif %}
                 </div>
                 <div class="form-group">
-                    <label for="{{ form.costo_mano_obra.id_for_label }}">Costo Mano de Obra ($)</label>
+                    <label for="id_costo_mano_obra" class="required">Costo Mano de Obra ($)</label>
                     {{ form.costo_mano_obra }}
+                    {% if form.costo_mano_obra.errors %}
+                        <span class="field-error">{{ form.costo_mano_obra.errors.0 }}</span>
+                    {% endif %}
                 </div>
             </div>
 
+            <!-- Estado -->
             <div class="form-group">
-                <label for="{{ form.estado.id_for_label }}">Estado de la Cotización</label>
+                <label for="id_estado">Estado de la Cotización</label>
                 {{ form.estado }}
             </div>
 
-            <!-- Calculadora en tiempo real -->
+            <!-- Calculadora -->
             <div class="total-preview">
-                Total Estimado: <span id="total-display" class="total-amount">$0.00</span>
+                <span class="total-label">Total Estimado:</span>
+                <span id="total-display" class="total-amount">$0.00</span>
             </div>
 
+            <!-- Botones -->
             <div class="form-actions">
-                <a href="{% url 'detalle_orden' orden.id %}" class="btn btn-secondary" style="text-decoration:none; border:1px solid #ccc; background:#fff; color:#333;">Cancelar</a>
-                <button type="submit" class="btn btn-primary">Guardar Cotización</button>
+                <a href="{% url 'detalle_orden' orden.id %}" class="btn btn-secondary" style="text-decoration:none; border:1px solid #ccc; background:white; color:#333; padding: 0.8rem 1.5rem; border-radius: 6px;">Cancelar</a>
+                <button type="submit" class="btn btn-primary" style="padding: 0.8rem 1.5rem;">Guardar Cotización</button>
             </div>
         </form>
     </div>
 
     <script>
-        // Cálculo simple en tiempo real
-        const inputRef = document.getElementById('{{ form.costo_refacciones.id_for_label }}');
-        const inputMO = document.getElementById('{{ form.costo_mano_obra.id_for_label }}');
-        const display = document.getElementById('total-display');
+        document.addEventListener('DOMContentLoaded', function() {
+            // Referencias a elementos del DOM
+            const inputRef = document.getElementById('id_costo_refacciones');
+            const inputMO = document.getElementById('id_costo_mano_obra');
+            const display = document.getElementById('total-display');
+            
+            const selectFuente = document.getElementById('id_fuente_refaccion');
+            const selectProveedor = document.getElementById('id_proveedor');
+            const labelProveedor = document.getElementById('label_proveedor');
 
-        function calcularTotal() {
-            const ref = parseFloat(inputRef.value) || 0;
-            const mo = parseFloat(inputMO.value) || 0;
-            const total = ref + mo;
-            display.textContent = '$' + total.toFixed(2);
-        }
+            // --- Lógica de Costos (Suma en tiempo real) ---
+            function calcularTotal() {
+                const ref = parseFloat(inputRef.value) || 0;
+                const mo = parseFloat(inputMO.value) || 0;
+                const total = ref + mo;
+                display.textContent = '$' + total.toFixed(2);
+            }
 
-        inputRef.addEventListener('input', calcularTotal);
-        inputMO.addEventListener('input', calcularTotal);
-        
-        // Calcular al inicio por si es edición
-        calcularTotal();
+            // Escuchar cambios en los inputs numéricos
+            inputRef.addEventListener('input', calcularTotal);
+            inputMO.addEventListener('input', calcularTotal);
+
+            // --- Lógica de Proveedor (Dinámica) ---
+            function toggleProveedor() {
+                const fuente = selectFuente.value;
+                // CORRECCIÓN: Coincidencia exacta con la base de datos (minúscula 'p' en proveedor)
+                if (fuente === 'Pedido a proveedor') {
+                    // Si es externo: Habilitar y marcar como requerido
+                    selectProveedor.disabled = false;
+                    // Forzamos el estilo visual de habilitado
+                    selectProveedor.style.backgroundColor = '#fff';
+                    labelProveedor.classList.add('required');
+                } else {
+                    // Si es interno o vacío: Deshabilitar, limpiar y quitar requerido
+                    selectProveedor.disabled = true;
+                    selectProveedor.value = ''; 
+                    selectProveedor.style.backgroundColor = '#f0f0f0';
+                    labelProveedor.classList.remove('required');
+                }
+            }
+
+            // Escuchar cambios en el select de fuente
+            selectFuente.addEventListener('change', toggleProveedor);
+            
+            // --- Inicialización ---
+            // Ejecutar al cargar para manejar estados de edición o errores de validación previos
+            calcularTotal();
+            toggleProveedor();
+        });
     </script>
 
 {% endblock %}

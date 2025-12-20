@@ -4,39 +4,87 @@
 
 {% block extra_css %}
 <style>
-    .page-header { margin-bottom: 2rem; }
+    /* Cabecera */
+    .page-header { margin-bottom: 2rem; text-align: center; }
     .page-title { font-size: 1.8rem; font-weight: 700; color: var(--color-primario); }
     .subtitle { color: #666; font-size: 1rem; }
 
-    .form-card { background: var(--color-fondo-card); border: 1px solid var(--color-borde); border-radius: 12px; padding: 2.5rem; max-width: 900px; margin: 0 auto; box-shadow: 0 4px 12px rgba(0,0,0,0.04); }
+    /* Tarjeta Principal */
+    .form-card { 
+        background: var(--color-fondo-card); border: 1px solid var(--color-borde); 
+        border-radius: 12px; padding: 2.5rem; max-width: 950px; margin: 0 auto; 
+        box-shadow: 0 4px 12px rgba(0,0,0,0.04); 
+    }
     
-    /* Header Form */
-    .form-header-section { margin-bottom: 2rem; padding-bottom: 1.5rem; border-bottom: 1px dashed var(--color-borde); }
+    /* Sección Header (Datos Generales) */
+    .header-box {
+        background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px;
+        padding: 1.5rem; margin-bottom: 2rem;
+    }
+    .form-grid-header { display: grid; grid-template-columns: 1fr 2fr; gap: 1.5rem; }
     
-    /* Items Table */
-    .items-table { width: 100%; border-collapse: collapse; margin-bottom: 1rem; }
-    .items-table th { text-align: left; padding: 0.8rem; background: #f8f9fa; color: var(--color-texto-secundario); font-size: 0.85rem; border-bottom: 2px solid var(--color-borde); }
-    .items-table td { padding: 0.8rem; border-bottom: 1px solid #eee; vertical-align: top; }
+    /* Labels e Inputs */
+    label { font-weight: 600; font-size: 0.9rem; color: var(--color-texto-secundario); display: block; margin-bottom: 0.4rem; }
+    label.required::after { content: " *"; color: #d32f2f; }
     
-    .item-row input { width: 100%; }
+    input, textarea { width: 100%; padding: 0.7rem; border: 1px solid var(--color-borde); border-radius: 6px; font-family: inherit; font-size: 0.95rem; }
+    input:focus, textarea:focus { border-color: var(--color-primario); outline: none; }
+
+    /* Tabla de Ítems */
+    .table-container { border: 1px solid var(--color-borde); border-radius: 8px; overflow: hidden; margin-bottom: 1rem; }
+    .items-table { width: 100%; border-collapse: collapse; background: white; }
+    .items-table th { 
+        text-align: left; padding: 1rem; background: #e3f2fd; 
+        color: #1565c0; font-weight: 700; font-size: 0.85rem; text-transform: uppercase;
+        border-bottom: 2px solid #bbdefb;
+    }
+    .items-table td { padding: 0.8rem; border-bottom: 1px solid #f0f0f0; vertical-align: middle; }
     
-    /* Botones */
-    .btn-add-row { background: #e3f2fd; color: #1565c0; border: 1px dashed #1565c0; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; font-size: 0.9rem; transition: background 0.2s; }
-    .btn-add-row:hover { background: #bbdefb; }
+    /* Inputs dentro de tabla */
+    .item-row input { border: 1px solid #ced4da; padding: 0.5rem; border-radius: 4px; }
+    .item-row input:focus { border-color: var(--color-primario); box-shadow: 0 0 0 2px rgba(0,0,0,0.05); }
+
+    /* Botón Agregar Ítem */
+    .btn-add-row { 
+        background: white; color: var(--color-primario); border: 2px dashed var(--color-borde); 
+        padding: 0.8rem; border-radius: 8px; cursor: pointer; width: 100%; font-weight: 600;
+        transition: all 0.2s; text-align: center; display: block; margin-top: 1rem;
+    }
+    .btn-add-row:hover { background: #f0f8ff; border-color: #bbdefb; color: #1565c0; }
     
-    .form-actions { display: flex; justify-content: flex-end; gap: 1rem; margin-top: 2rem; border-top: 1px solid var(--color-borde); padding-top: 1.5rem; }
+    /* Acciones Finales */
+    .form-actions { display: flex; justify-content: flex-end; gap: 1rem; margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid #eee; }
     
-    /* Autorización box */
-    .auth-box { background: #fff3cd; border: 1px solid #ffeeba; padding: 1rem; border-radius: 8px; margin-bottom: 2rem; display: flex; justify-content: space-between; align-items: center; color: #856404; }
+    /* Caja de Autorización */
+    .auth-box { 
+        background: #fff3cd; border: 1px solid #ffeeba; padding: 1rem; border-radius: 8px; 
+        margin-bottom: 2rem; display: flex; justify-content: space-between; align-items: center; color: #856404; 
+    }
+
+    /* Ocultar fila plantilla */
+    #empty-row-template { display: none; }
 </style>
 {% endblock %}
 
 {% block content %}
 
-    <div class="page-header" style="text-align: center;">
+    <div class="page-header">
         <h1 class="page-title">{% if editar %}Gestionar{% else %}Solicitar{% endif %} Transferencia</h1>
-        <div class="subtitle">Orden de Servicio #{{ orden.pk }} - {{ orden.equipo.tipo_equipo }}</div>
+        <div class="subtitle">Orden de Servicio #{{ orden.pk }} - {{ orden.equipo.tipo_equipo }} {{ orden.equipo.marca }}</div>
     </div>
+
+    <!-- Mensajes de error globales -->
+    {% if messages %}
+        <div style="max-width: 950px; margin: 0 auto 1rem auto;">
+        {% for message in messages %}
+            {% if message.tags == 'error' %}
+            <div style="padding: 1rem; background: #ffebee; border: 1px solid #ef9a9a; border-radius: 8px; color: #b71c1c;">
+                {{ message }}
+            </div>
+            {% endif %}
+        {% endfor %}
+        </div>
+    {% endif %}
 
     <div class="form-card">
         <form method="POST" id="transferencia-form">
@@ -46,7 +94,7 @@
             {% if editar and perms.gestion_ordenes.change_transferencia %}
                 <div class="auth-box">
                     <div>
-                        <strong>Estado de Autorización:</strong>
+                        <strong>Estado:</strong>
                         {% if transferencia.usuario_autoriza %}
                             <span style="color: green; font-weight: bold;">AUTORIZADO por {{ transferencia.usuario_autoriza.username }}</span>
                         {% else %}
@@ -62,101 +110,106 @@
                 </div>
             {% endif %}
 
-            <!-- 1. Cabecera -->
-            <div class="form-header-section">
-                <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 1.5rem;">
+            <!-- 1. Cabecera (Diseño Mejorado) -->
+            <div class="header-box">
+                <h3 style="margin-top:0; margin-bottom:1rem; font-size:1rem; color:#555; text-transform:uppercase; border-bottom:1px solid #ddd; padding-bottom:0.5rem;">Información General</h3>
+                <div class="form-grid-header">
                     <div>
-                        <label style="font-weight:600; margin-bottom:0.5rem; display:block;">Doc. Referencia</label>
+                        <label for="{{ form.documento_referencia.id_for_label }}">Doc. Referencia</label>
                         {{ form.documento_referencia }}
                     </div>
                     <div>
-                        <label style="font-weight:600; margin-bottom:0.5rem; display:block;">Notas / Justificación</label>
+                        <label for="{{ form.notas.id_for_label }}">Notas / Justificación</label>
                         {{ form.notas }}
                     </div>
                 </div>
             </div>
 
-            <!-- 2. Ítems (Formset) -->
-            <h3 style="font-size:1.1rem; color:var(--color-primario); margin-bottom:1rem;">Ítems a Solicitar</h3>
+            <!-- 2. Ítems (Tabla Estética) -->
+            <div style="margin-bottom: 0.5rem; display:flex; justify-content:space-between; align-items:flex-end;">
+                <h3 style="font-size:1.1rem; color:var(--color-primario); margin:0;">Ítems a Solicitar</h3>
+                <small style="color: #666;">Asegúrate de llenar la descripción y cantidad</small>
+            </div>
             
             {{ formset.management_form }}
             
-            <table class="items-table" id="items-table">
-                <thead>
-                    <tr>
-                        <th style="width: 50%;">Descripción del Ítem *</th>
-                        <th style="width: 15%;">Cantidad</th>
-                        <th style="width: 25%;">No. Serie (Opcional)</th>
-                        <th style="width: 10%;">Eliminar</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for form_item in formset %}
-                        <tr class="item-row">
-                            <!-- Campos ocultos (ID) necesarios para editar -->
-                            {% for hidden in form_item.hidden_fields %}
-                                {{ hidden }}
-                            {% endfor %}
-                            
-                            <td>
-                                {{ form_item.descripcion_item }}
-                                {% if form_item.descripcion_item.errors %}<small style="color:red;">{{ form_item.descripcion_item.errors.0 }}</small>{% endif %}
-                            </td>
-                            <td>{{ form_item.cantidad }}</td>
-                            <td>{{ form_item.numero_serie }}</td>
-                            <td style="text-align: center;">
-                                {{ form_item.DELETE }}
-                            </td>
+            <div class="table-container">
+                <table class="items-table" id="items-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 45%;">Descripción del Ítem *</th>
+                            <th style="width: 15%;">Cantidad *</th>
+                            <th style="width: 30%;">No. Serie</th>
+                            <th style="width: 10%; text-align:center;">Borrar</th>
                         </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+                    </thead>
+                    <tbody>
+                        <!-- Filas existentes (o 1 vacía si es crear, gracias a views.py) -->
+                        {% for form_item in formset %}
+                            <tr class="item-row">
+                                {% for hidden in form_item.hidden_fields %}
+                                    {{ hidden }}
+                                {% endfor %}
+                                
+                                <td>
+                                    {{ form_item.descripcion_item }}
+                                    {% if form_item.descripcion_item.errors %}
+                                        <div style="color:red; font-size:0.8rem; margin-top:2px;">{{ form_item.descripcion_item.errors.0 }}</div>
+                                    {% endif %}
+                                </td>
+                                <td>{{ form_item.cantidad }}</td>
+                                <td>{{ form_item.numero_serie }}</td>
+                                <td style="text-align: center;">
+                                    {{ form_item.DELETE }}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
 
-            <button type="button" id="add-item-btn" class="btn-add-row">+ Agregar otro ítem</button>
+            <button type="button" id="add-item-btn" class="btn-add-row">
+                <i class="fas fa-plus"></i> Agregar otra fila
+            </button>
 
             <div class="form-actions">
-                <a href="{% url 'detalle_orden' orden.id %}" class="btn btn-secondary" style="text-decoration:none; border:1px solid #ccc; background:#fff; color:#333;">Cancelar</a>
-                <button type="submit" class="btn btn-primary">Guardar Transferencia</button>
+                <a href="{% url 'detalle_orden' orden.id %}" class="btn btn-secondary" style="text-decoration:none; border:1px solid #ccc; background:white; color:#333; padding: 0.8rem 1.5rem; border-radius: 6px;">Cancelar</a>
+                <button type="submit" class="btn btn-primary" style="padding: 0.8rem 1.5rem;">Guardar Solicitud</button>
             </div>
         </form>
     </div>
 
-    <!-- Script para Formset Dinámico -->
+    <!-- 
+      CORRECCIÓN CRÍTICA: La tabla plantilla se mueve FUERA del <form>.
+      Esto evita que el navegador intente validar los campos required ocultos al enviar.
+    -->
+    <table style="display: none;">
+        <tr id="empty-row-template" class="item-row">
+            <td><input type="text" name="items-__prefix__-descripcion_item" class="form-control" required id="id_items-__prefix__-descripcion_item"></td>
+            <td><input type="number" name="items-__prefix__-cantidad" class="form-control" value="1" min="1" required id="id_items-__prefix__-cantidad" style="width: 80px;"></td>
+            <td><input type="text" name="items-__prefix__-numero_serie" class="form-control" id="id_items-__prefix__-numero_serie"></td>
+            <td style="text-align: center;"><input type="checkbox" name="items-__prefix__-DELETE" id="id_items-__prefix__-DELETE"></td>
+        </tr>
+    </table>
+
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const addBtn = document.getElementById('add-item-btn');
             const totalForms = document.getElementById('id_items-TOTAL_FORMS');
             const tableBody = document.querySelector('#items-table tbody');
+            const templateRow = document.getElementById('empty-row-template');
 
-            addBtn.addEventListener('click', function(e) {
-                e.preventDefault();
-                
+            addBtn.addEventListener('click', function() {
                 let formCount = parseInt(totalForms.value);
-                const firstRow = tableBody.querySelector('.item-row');
                 
-                // Clonamos la primera fila
-                const newRow = firstRow.cloneNode(true);
+                // Clonar la fila template
+                const newRow = templateRow.cloneNode(true);
+                newRow.removeAttribute('id'); // Quitar ID de template
                 
-                // Limpiamos los valores de los inputs en la nueva fila y actualizamos índices
-                const inputs = newRow.querySelectorAll('input');
-                inputs.forEach(input => {
-                    // Reemplazamos el índice (items-0-campo -> items-1-campo)
-                    if (input.name) {
-                        input.name = input.name.replace(`items-0`, `items-${formCount}`);
-                        input.id = input.id.replace(`items-0`, `items-${formCount}`);
-                    }
-                    // Limpiar valor (excepto checkbox DELETE)
-                    if (input.type !== 'checkbox' && input.type !== 'hidden') {
-                        input.value = '';
-                    }
-                    if (input.type === 'number') input.value = '1';
-                    if (input.type === 'checkbox') input.checked = false;
-                });
-
-                // Añadimos al DOM
+                // Reemplazar __prefix__ por el índice actual
+                newRow.innerHTML = newRow.innerHTML.replace(/__prefix__/g, formCount);
+                
                 tableBody.appendChild(newRow);
-                
-                // Actualizamos el contador total
                 totalForms.value = formCount + 1;
             });
         });

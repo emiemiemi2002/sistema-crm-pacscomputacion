@@ -8,12 +8,13 @@ from django.views.decorators.http import require_GET, require_POST
 from django.core.paginator import Paginator
 from django.utils.dateparse import parse_date
 from django.db import transaction # Importante para guardar padre e hijos atómicamente
+from django.forms import inlineformset_factory
 from gestion_clientes.models import Cliente, Equipo
 from catalogo.models import TipoServicio
-from .models import OrdenServicio, BitacoraOrden, Cotizacion, Transferencia
+from .models import OrdenServicio, BitacoraOrden, Cotizacion, Transferencia, ItemTransferido
 from .forms import (
     BitacoraForm, AgregarServicioForm, CotizacionForm, 
-    TransferenciaForm, ItemTransferidoFormSet
+    TransferenciaForm, ItemTransferidoForm
 )
 
 # --- UTILIDADES ---
@@ -23,8 +24,6 @@ def normalizar_texto(texto):
     return ''.join(c for c in unicodedata.normalize('NFD', str(texto).lower()) if unicodedata.category(c) != 'Mn')
 
 # --- VISTAS GENERALES (Lista, Crear Orden, Editar Orden, Eliminar Orden, API) ---
-# ... (Mantener el código existente de lista_ordenes, crear_orden, editar_orden, eliminar_orden, buscar_cliente_api) ...
-# (Para brevedad, asumo que mantienes el código previo aquí. Si necesitas que lo repita todo, dímelo).
 
 @login_required
 def lista_ordenes(request):
@@ -201,7 +200,7 @@ def eliminar_servicio_orden(request, orden_id, servicio_id):
     messages.success(request, f'Servicio "{servicio.nombre_servicio}" eliminado.')
     return redirect('detalle_orden', orden_id=orden_id)
 
-# --- GESTIÓN DE COTIZACIONES (NUEVO) ---
+# --- GESTIÓN COTIZACIONES ---
 
 @login_required
 @permission_required('gestion_ordenes.add_cotizacion', raise_exception=True)
@@ -216,13 +215,7 @@ def crear_cotizacion(request, orden_id):
             cotizacion.usuario_creador = request.user
             cotizacion.save()
             
-            # Bitácora
-            BitacoraOrden.objects.create(
-                orden=orden,
-                usuario=request.user,
-                descripcion=f"Se generó Cotización #{cotizacion.id}. Concepto: {cotizacion.concepto[:50]}..."
-            )
-            
+            BitacoraOrden.objects.create(orden=orden, usuario=request.user, descripcion=f"Se generó Cotización #{cotizacion.id}. Concepto: {cotizacion.concepto[:30]}...")
             messages.success(request, 'Cotización registrada correctamente.')
             return redirect('detalle_orden', orden_id=orden.id)
     else:
@@ -235,29 +228,18 @@ def crear_cotizacion(request, orden_id):
 def editar_cotizacion(request, orden_id, cotizacion_id):
     orden = get_object_or_404(OrdenServicio, pk=orden_id)
     cotizacion = get_object_or_404(Cotizacion, pk=cotizacion_id, orden=orden)
-    
     estado_anterior = cotizacion.estado
 
     if request.method == 'POST':
         form = CotizacionForm(request.POST, instance=cotizacion)
         if form.is_valid():
             cotizacion = form.save()
-            
-            # Bitácora de cambios (si hubo cambio de estado)
             if estado_anterior != cotizacion.estado:
-                BitacoraOrden.objects.create(
-                    orden=orden,
-                    usuario=request.user,
-                    descripcion=f"Cotización #{cotizacion.id} cambió de estado: {estado_anterior} -> {cotizacion.estado}"
-                )
+                BitacoraOrden.objects.create(orden=orden, usuario=request.user, descripcion=f"Cotización #{cotizacion.id} estado: {estado_anterior} -> {cotizacion.estado}")
             else:
-                BitacoraOrden.objects.create(
-                    orden=orden,
-                    usuario=request.user,
-                    descripcion=f"Se actualizó la Cotización #{cotizacion.id}"
-                )
-
-            messages.success(request, 'Cotización actualizada correctamente.')
+                BitacoraOrden.objects.create(orden=orden, usuario=request.user, descripcion=f"Se actualizó la Cotización #{cotizacion.id}")
+            
+            messages.success(request, 'Cotización actualizada.')
             return redirect('detalle_orden', orden_id=orden.id)
     else:
         form = CotizacionForm(instance=cotizacion)
@@ -281,47 +263,45 @@ def eliminar_cotizacion(request, orden_id, cotizacion_id):
     messages.success(request, 'Cotización eliminada.')
     return redirect('detalle_orden', orden_id=orden.id)
 
-# --- GESTIÓN DE TRANSFERENCIAS ---
+# --- GESTIÓN TRANSFERENCIAS ---
 
 @login_required
 @permission_required('gestion_ordenes.add_transferencia', raise_exception=True)
 def crear_transferencia(request, orden_id):
     orden = get_object_or_404(OrdenServicio, pk=orden_id)
     
+    # Fábrica con extra=1 para crear (queremos 1 fila vacía al inicio)
+    ItemFormSet = inlineformset_factory(Transferencia, ItemTransferido, form=ItemTransferidoForm, extra=1, can_delete=True)
+
     if request.method == 'POST':
         form = TransferenciaForm(request.POST)
-        formset = ItemTransferidoFormSet(request.POST)
+        formset = ItemFormSet(request.POST)
         
         if form.is_valid() and formset.is_valid():
-            with transaction.atomic(): # Asegura que se guarde todo o nada
-                # 1. Guardar Cabecera (Transferencia)
-                transferencia = form.save(commit=False)
-                transferencia.orden = orden
-                transferencia.usuario_solicitante = request.user
-                transferencia.save()
+            # Validar al menos 1 ítem real
+            items_validos = [f for f in formset if f.cleaned_data and not f.cleaned_data.get('DELETE', False)]
+            
+            if not items_validos:
+                messages.error(request, 'Debes agregar al menos un ítem a la transferencia.')
+            else:
+                with transaction.atomic():
+                    transferencia = form.save(commit=False)
+                    transferencia.orden = orden
+                    transferencia.usuario_solicitante = request.user
+                    transferencia.save()
+                    formset.instance = transferencia
+                    formset.save()
+                    
+                    BitacoraOrden.objects.create(orden=orden, usuario=request.user, descripcion=f"Solicitud Transferencia #{transferencia.id} creada.")
                 
-                # 2. Guardar Items
-                formset.instance = transferencia
-                formset.save()
-                
-                # 3. Bitácora
-                BitacoraOrden.objects.create(
-                    orden=orden,
-                    usuario=request.user,
-                    descripcion=f"Se solicitó Transferencia #{transferencia.id} al almacén."
-                )
-                
-            messages.success(request, 'Solicitud de transferencia registrada correctamente.')
-            return redirect('detalle_orden', orden_id=orden.id)
+                messages.success(request, 'Transferencia solicitada.')
+                return redirect('detalle_orden', orden_id=orden.id)
     else:
         form = TransferenciaForm()
-        formset = ItemTransferidoFormSet()
+        # Queryset none para que esté vacío, extra=1 pone la fila
+        formset = ItemFormSet(queryset=ItemTransferido.objects.none())
 
-    return render(request, 'gestion_ordenes/transferencia_form.html', {
-        'form': form, 
-        'formset': formset, 
-        'orden': orden
-    })
+    return render(request, 'gestion_ordenes/transferencia_form.html', {'form': form, 'formset': formset, 'orden': orden})
 
 @login_required
 @permission_required('gestion_ordenes.change_transferencia', raise_exception=True)
@@ -329,46 +309,43 @@ def editar_transferencia(request, orden_id, transferencia_id):
     orden = get_object_or_404(OrdenServicio, pk=orden_id)
     transferencia = get_object_or_404(Transferencia, pk=transferencia_id, orden=orden)
     
-    # Bloquear edición si ya está autorizada (regla de negocio sugerida)
+    # Bloqueo si ya está autorizado (regla de negocio)
     if transferencia.usuario_autoriza and not request.user.groups.filter(name='Gerente Servicio').exists():
-        messages.error(request, 'No se puede editar una transferencia ya autorizada.')
+        messages.error(request, 'Transferencia ya autorizada. Solo lectura.')
         return redirect('detalle_orden', orden_id=orden.id)
+
+    # SOLUCIÓN: Fábrica con extra=0 para editar (NO agrega filas vacías automáticas)
+    ItemFormSetEdit = inlineformset_factory(Transferencia, ItemTransferido, form=ItemTransferidoForm, extra=0, can_delete=True)
 
     if request.method == 'POST':
         form = TransferenciaForm(request.POST, instance=transferencia)
-        formset = ItemTransferidoFormSet(request.POST, instance=transferencia)
+        formset = ItemFormSetEdit(request.POST, instance=transferencia)
         
         if form.is_valid() and formset.is_valid():
-            form.save()
-            formset.save()
+            items_validos = [f for f in formset if f.cleaned_data and not f.cleaned_data.get('DELETE', False)]
             
-            # Lógica de Autorización (Solo si es Gerente y presionó el botón específico)
-            if 'btn_autorizar' in request.POST and request.user.has_perm('gestion_ordenes.change_transferencia'):
-                transferencia.usuario_autoriza = request.user
-                transferencia.save()
-                BitacoraOrden.objects.create(
-                    orden=orden, usuario=request.user,
-                    descripcion=f"Se AUTORIZÓ la Transferencia #{transferencia.id}"
-                )
-                messages.success(request, 'Transferencia actualizada y autorizada.')
+            if not items_validos:
+                messages.error(request, 'La transferencia no puede quedar vacía.')
             else:
-                BitacoraOrden.objects.create(
-                    orden=orden, usuario=request.user,
-                    descripcion=f"Se actualizó la Transferencia #{transferencia.id}"
-                )
-                messages.success(request, 'Transferencia actualizada.')
+                form.save()
+                formset.save()
+                
+                if 'btn_autorizar' in request.POST and request.user.has_perm('gestion_ordenes.change_transferencia'):
+                    transferencia.usuario_autoriza = request.user
+                    transferencia.save()
+                    BitacoraOrden.objects.create(orden=orden, usuario=request.user, descripcion=f"AUTORIZADA Transferencia #{transferencia.id}")
+                    messages.success(request, 'Transferencia autorizada.')
+                else:
+                    BitacoraOrden.objects.create(orden=orden, usuario=request.user, descripcion=f"Actualizada Transferencia #{transferencia.id}")
+                    messages.success(request, 'Transferencia actualizada.')
 
-            return redirect('detalle_orden', orden_id=orden.id)
+                return redirect('detalle_orden', orden_id=orden.id)
     else:
         form = TransferenciaForm(instance=transferencia)
-        formset = ItemTransferidoFormSet(instance=transferencia)
+        formset = ItemFormSetEdit(instance=transferencia)
 
     return render(request, 'gestion_ordenes/transferencia_form.html', {
-        'form': form, 
-        'formset': formset, 
-        'orden': orden,
-        'transferencia': transferencia,
-        'editar': True
+        'form': form, 'formset': formset, 'orden': orden, 'transferencia': transferencia, 'editar': True
     })
 
 @login_required

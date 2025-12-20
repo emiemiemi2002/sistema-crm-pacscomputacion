@@ -1,18 +1,14 @@
 from django import forms
-from django.forms import inlineformset_factory
 from .models import BitacoraOrden, Cotizacion, Transferencia, ItemTransferido
 from catalogo.models import TipoServicio
 
+# --- Formularios base (Bitácora y Servicio) ---
 class BitacoraForm(forms.ModelForm):
     class Meta:
         model = BitacoraOrden
         fields = ['descripcion']
         widgets = {
-            'descripcion': forms.Textarea(attrs={
-                'class': 'form-control', 
-                'rows': 3, 
-                'placeholder': 'Escribe una nueva nota o actualización sobre el servicio...'
-            }),
+            'descripcion': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Escribe una nota...'}),
         }
 
 class AgregarServicioForm(forms.Form):
@@ -20,67 +16,67 @@ class AgregarServicioForm(forms.Form):
         queryset=TipoServicio.objects.all().order_by('nombre_servicio'),
         widget=forms.Select(attrs={'class': 'filter-control', 'style': 'width: 100%;'}),
         label="Seleccionar Servicio",
-        empty_label="-- Selecciona un servicio del catálogo --"
+        empty_label="-- Selecciona un servicio --"
     )
 
-# --- Formulario de Cotización ---
+# --- COTIZACIONES ---
 class CotizacionForm(forms.ModelForm):
     class Meta:
         model = Cotizacion
         fields = ['concepto', 'proveedor', 'fuente_refaccion', 'costo_refacciones', 'costo_mano_obra', 'estado']
         widgets = {
-            'concepto': forms.Textarea(attrs={'rows': 3, 'placeholder': 'Describe qué incluye esta cotización...'}),
-            'costo_refacciones': forms.NumberInput(attrs={'step': '0.01', 'min': '0'}),
-            'costo_mano_obra': forms.NumberInput(attrs={'step': '0.01', 'min': '0'}),
+            'concepto': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Descripción detallada...', 'required': True}),
+            'costo_refacciones': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'min': '0', 'required': True}),
+            'costo_mano_obra': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'min': '0', 'required': True}),
+            'estado': forms.Select(attrs={'class': 'form-control'}),
+            
+            # IDs explícitos para que el JS los encuentre sin fallas
+            'fuente_refaccion': forms.Select(attrs={'class': 'form-control', 'id': 'id_fuente_refaccion', 'required': True}),
+            'proveedor': forms.Select(attrs={'class': 'form-control', 'id': 'id_proveedor'}),
         }
         labels = {
-            'fuente_refaccion': 'Fuente de la Refacción',
-            'costo_refacciones': 'Costo Refacciones ($)',
-            'costo_mano_obra': 'Costo Mano de Obra ($)',
+            'fuente_refaccion': 'Origen de Refacción *',
+            'costo_refacciones': 'Costo Refacciones *',
+            'costo_mano_obra': 'Costo Mano de Obra *',
+            'proveedor': 'Proveedor',
         }
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        # Estilizar todos los campos
-        for field in self.fields:
-            self.fields[field].widget.attrs.update({'class': 'form-control'})
+    def clean(self):
+        cleaned_data = super().clean()
+        fuente = cleaned_data.get('fuente_refaccion')
+        proveedor = cleaned_data.get('proveedor')
+        costo_ref = cleaned_data.get('costo_refacciones')
+        costo_mo = cleaned_data.get('costo_mano_obra')
 
-# --- Formularios para Transferencias ---
+        # Validación estricta de campos numéricos (por si el HTML se salta)
+        if costo_ref is None: self.add_error('costo_refacciones', 'Este campo es obligatorio.')
+        if costo_mo is None: self.add_error('costo_mano_obra', 'Este campo es obligatorio.')
 
+        # Lógica de Proveedor
+        if fuente == 'Pedido a Proveedor' and not proveedor:
+            self.add_error('proveedor', 'Si el origen es externo, debe seleccionar un proveedor.')
+        
+        if fuente == 'Stock Interno':
+            cleaned_data['proveedor'] = None # Limpiar si seleccionó uno por error
+        
+        return cleaned_data
+
+# --- TRANSFERENCIAS ---
 class TransferenciaForm(forms.ModelForm):
     class Meta:
         model = Transferencia
         fields = ['documento_referencia', 'notas']
         widgets = {
-            'notas': forms.Textarea(attrs={'rows': 2, 'placeholder': 'Notas adicionales para almacén...'}),
-            'documento_referencia': forms.TextInput(attrs={'placeholder': 'Folio físico, Ticket, etc. (Opcional)'}),
+            'documento_referencia': forms.TextInput(attrs={'class': 'form-control'}),
+            'notas': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
         }
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        for field in self.fields:
-            self.fields[field].widget.attrs.update({'class': 'form-control'})
 
 class ItemTransferidoForm(forms.ModelForm):
     class Meta:
         model = ItemTransferido
         fields = ['descripcion_item', 'cantidad', 'numero_serie']
         widgets = {
-            'descripcion_item': forms.TextInput(attrs={'placeholder': 'Descripción de la pieza/refacción'}),
-            'cantidad': forms.NumberInput(attrs={'min': '1', 'value': '1', 'style': 'width: 80px;'}),
-            'numero_serie': forms.TextInput(attrs={'placeholder': 'S/N (Opcional)'}),
+            'descripcion_item': forms.TextInput(attrs={'class': 'form-control', 'required': True}),
+            'cantidad': forms.NumberInput(attrs={'class': 'form-control', 'min': '1', 'required': True, 'style': 'width: 80px;'}),
+            'numero_serie': forms.TextInput(attrs={'class': 'form-control'}),
         }
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        for field in self.fields:
-            self.fields[field].widget.attrs.update({'class': 'form-control'})
-
-# Formset Factory: Permite gestionar múltiples items dentro del formulario de Transferencia
-ItemTransferidoFormSet = inlineformset_factory(
-    Transferencia, 
-    ItemTransferido, 
-    form=ItemTransferidoForm,
-    extra=1,       # Mostrar 1 fila vacía por defecto
-    can_delete=True # Permitir borrar filas
-)
