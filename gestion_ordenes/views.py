@@ -7,8 +7,10 @@ from django.contrib import messages
 from django.views.decorators.http import require_GET, require_POST
 from django.core.paginator import Paginator
 from django.utils.dateparse import parse_date
+from django.utils import timezone
 from django.db import transaction # Importante para guardar padre e hijos atómicamente
 from django.forms import inlineformset_factory
+
 from gestion_clientes.models import Cliente, Equipo
 from catalogo.models import TipoServicio
 from .models import OrdenServicio, BitacoraOrden, Cotizacion, Transferencia, ItemTransferido
@@ -23,7 +25,7 @@ def normalizar_texto(texto):
         return ''
     return ''.join(c for c in unicodedata.normalize('NFD', str(texto).lower()) if unicodedata.category(c) != 'Mn')
 
-# --- VISTAS GENERALES (Lista, Crear Orden, Editar Orden, Eliminar Orden, API) ---
+# --- VISTAS GENERALES ---
 
 @login_required
 def lista_ordenes(request):
@@ -34,30 +36,27 @@ def lista_ordenes(request):
     fecha_inicio = request.GET.get('fecha_inicio')
     fecha_fin = request.GET.get('fecha_fin')
     
-    if filtro_estado:
-        ordenes = ordenes.filter(estado=filtro_estado)
-    if filtro_tecnico:
-        ordenes = ordenes.filter(tecnico_asignado__id=filtro_tecnico)
-    if filtro_prioridad:
-        ordenes = ordenes.filter(prioridad=filtro_prioridad)
+    if filtro_estado: ordenes = ordenes.filter(estado=filtro_estado)
+    if filtro_tecnico: ordenes = ordenes.filter(tecnico_asignado__id=filtro_tecnico)
+    if filtro_prioridad: ordenes = ordenes.filter(prioridad=filtro_prioridad)
     if fecha_inicio:
-        date_start = parse_date(fecha_inicio)
-        if date_start:
-            ordenes = ordenes.filter(fecha_creacion__date__gte=date_start)
+        d_inicio = parse_date(fecha_inicio)
+        if d_inicio: ordenes = ordenes.filter(fecha_creacion__date__gte=d_inicio)
     if fecha_fin:
-        date_end = parse_date(fecha_fin)
-        if date_end:
-            ordenes = ordenes.filter(fecha_creacion__date__lte=date_end)
+        d_fin = parse_date(fecha_fin)
+        if d_fin: ordenes = ordenes.filter(fecha_creacion__date__lte=d_fin)
 
     paginator = Paginator(ordenes, 10)
-    page_number = request.GET.get('page')
-    page_obj = paginator.get_page(page_number)
+    page_obj = paginator.get_page(request.GET.get('page'))
     tecnicos_list = User.objects.filter(groups__name='Técnico')
     
     context = {
         'page_obj': page_obj, 'tecnicos_list': tecnicos_list,
         'estados_opciones': OrdenServicio.ESTADO_OPCIONES, 'prioridades_opciones': OrdenServicio.PRIORIDAD_OPCIONES,
-        'current_filters': {'estado': filtro_estado, 'tecnico': filtro_tecnico and int(filtro_tecnico) if filtro_tecnico else '', 'prioridad': filtro_prioridad, 'fecha_inicio': fecha_inicio, 'fecha_fin': fecha_fin}
+        'current_filters': {
+            'estado': filtro_estado, 'tecnico': filtro_tecnico, 
+            'prioridad': filtro_prioridad, 'fecha_inicio': fecha_inicio, 'fecha_fin': fecha_fin
+        }
     }
     return render(request, 'gestion_ordenes/lista_ordenes.html', context)
 
@@ -74,7 +73,11 @@ def crear_orden(request):
         if cliente_id and equipo_id and descripcion:
             cliente = get_object_or_404(Cliente, pk=cliente_id)
             equipo = get_object_or_404(Equipo, pk=equipo_id)
-            nueva_orden = OrdenServicio(cliente=cliente, equipo=equipo, descripcion_falla=descripcion, contrasena_equipo=contrasena, prioridad=prioridad, asistente_receptor=request.user, estado=OrdenServicio.ESTADO_NUEVA)
+            nueva_orden = OrdenServicio(
+                cliente=cliente, equipo=equipo, descripcion_falla=descripcion, 
+                contrasena_equipo=contrasena, prioridad=prioridad, 
+                asistente_receptor=request.user, estado=OrdenServicio.ESTADO_NUEVA
+            )
             if tecnico_id:
                 nueva_orden.tecnico_asignado = User.objects.get(pk=tecnico_id)
             nueva_orden.save()
@@ -82,36 +85,50 @@ def crear_orden(request):
             return redirect('lista_ordenes')
 
     tecnicos_list = User.objects.filter(groups__name='Técnico')
-    prioridades = OrdenServicio.PRIORIDAD_OPCIONES
-    cliente_pre = None
-    equipos_pre = []
-    if request.GET.get('cliente_id'):
-        cliente_pre = get_object_or_404(Cliente, pk=request.GET.get('cliente_id'))
-        equipos_pre = cliente_pre.equipos.all()
-
-    context = {'tecnicos_list': tecnicos_list, 'prioridades': prioridades, 'cliente_pre': cliente_pre, 'equipos_pre': equipos_pre}
+    context = {
+        'tecnicos_list': tecnicos_list, 
+        'prioridades': OrdenServicio.PRIORIDAD_OPCIONES,
+        'cliente_pre': None, 'equipos_pre': []
+    }
     return render(request, 'gestion_ordenes/crear_orden.html', context)
 
 @login_required
 @permission_required('gestion_ordenes.change_ordenservicio', raise_exception=True)
 def editar_orden(request, orden_id):
+    """Formulario de CIERRE para Recepción/Gerencia."""
     orden = get_object_or_404(OrdenServicio, pk=orden_id)
-    if request.method == 'POST':
-        orden.descripcion_falla = request.POST.get('descripcion_falla')
-        orden.contrasena_equipo = request.POST.get('contrasena_equipo')
-        orden.prioridad = request.POST.get('prioridad')
-        orden.estado = request.POST.get('estado')
-        tecnico_id = request.POST.get('tecnico_asignado')
-        orden.tecnico_asignado = User.objects.get(pk=tecnico_id) if tecnico_id else None
-        orden.save()
-        messages.success(request, f'Orden #{orden.id} actualizada correctamente.')
-        return redirect('lista_ordenes')
 
-    tecnicos_list = User.objects.filter(groups__name='Técnico')
-    prioridades = OrdenServicio.PRIORIDAD_OPCIONES
-    estados = OrdenServicio.ESTADO_OPCIONES
-    context = {'orden': orden, 'tecnicos_list': tecnicos_list, 'prioridades': prioridades, 'estados': estados}
-    return render(request, 'gestion_ordenes/editar_orden.html', context)
+    if orden.fecha_cierre:
+        messages.error(request, "Esta orden está cerrada y no permite cambios administrativos.")
+        return redirect('detalle_orden', orden_id=orden.id)
+
+    if request.method == 'POST':
+        nuevo_estado = request.POST.get('estado')
+        if nuevo_estado in [OrdenServicio.ESTADO_ENTREGADA, OrdenServicio.ESTADO_CANCELADA]:
+            # Validaciones de flujo
+            if nuevo_estado == OrdenServicio.ESTADO_ENTREGADA and orden.estado != OrdenServicio.ESTADO_FINALIZADA_TECNICO:
+                messages.error(request, "No se puede entregar si el técnico no ha finalizado.")
+            else:
+                with transaction.atomic():
+                    orden.estado = nuevo_estado
+                    orden.fecha_cierre = timezone.now()
+                    orden.save()
+                    BitacoraOrden.objects.create(
+                        orden=orden, usuario=request.user,
+                        descripcion=f"*** ORDEN CERRADA: {nuevo_estado} ***"
+                    )
+                messages.success(request, f"Orden #{orden.id} cerrada correctamente.")
+                return redirect('lista_ordenes')
+
+    estados_permitidos = []
+    if orden.estado == OrdenServicio.ESTADO_FINALIZADA_TECNICO:
+        estados_permitidos = [(OrdenServicio.ESTADO_ENTREGADA, 'Entregada')]
+    else:
+        estados_permitidos = [(OrdenServicio.ESTADO_CANCELADA, 'Cancelada')]
+
+    return render(request, 'gestion_ordenes/editar_orden.html', {
+        'orden': orden, 'estados_cierre': estados_permitidos
+    })
 
 @login_required
 @permission_required('gestion_ordenes.delete_ordenservicio', raise_exception=True)
@@ -140,7 +157,7 @@ def buscar_cliente_api(request):
         if contador >= 5: break
     return JsonResponse({'resultados': resultados})
 
-# --- VISTAS DETALLE Y GESTIÓN ---
+# --- VISTAS DE DETALLE Y OPERACIONES ---
 
 @login_required
 def detalle_orden(request, orden_id):
@@ -148,80 +165,69 @@ def detalle_orden(request, orden_id):
     cotizaciones = orden.cotizaciones.all().order_by('-id')
     bitacora = orden.bitacora.all().order_by('-fecha_hora')
     transferencias = orden.transferencias.all().select_related('usuario_solicitante', 'usuario_autoriza')
-    form_servicio = AgregarServicioForm()
-
+    
     if request.method == 'POST':
+        if orden.fecha_cierre:
+            messages.error(request, "No se pueden añadir notas a un expediente cerrado.")
+            return redirect('detalle_orden', orden_id=orden.id)
+            
         form_bitacora = BitacoraForm(request.POST)
         if form_bitacora.is_valid():
-            nueva_entrada = form_bitacora.save(commit=False)
-            nueva_entrada.orden = orden
-            nueva_entrada.usuario = request.user
-            nueva_entrada.save()
-            messages.success(request, 'Nota agregada a la bitácora.')
+            nueva = form_bitacora.save(commit=False)
+            nueva.orden = orden
+            nueva.usuario = request.user
+            nueva.save()
+            messages.success(request, 'Nota agregada.')
             return redirect('detalle_orden', orden_id=orden.pk)
-    else:
-        form_bitacora = BitacoraForm()
-
+    
     context = {
-        'orden': orden,
-        'cotizaciones': cotizaciones,
-        'transferencias': transferencias,
-        'bitacora': bitacora,
-        'form_bitacora': form_bitacora,
-        'form_servicio': form_servicio,
+        'orden': orden, 'cotizaciones': cotizaciones, 'bitacora': bitacora,
+        'transferencias': transferencias, 'form_bitacora': BitacoraForm(),
+        'form_servicio': AgregarServicioForm(), 'es_cerrada': orden.fecha_cierre is not None
     }
     return render(request, 'gestion_ordenes/detalle_orden.html', context)
 
 @login_required
-@permission_required('gestion_ordenes.change_ordenservicio', raise_exception=True)
 @require_POST
 def agregar_servicio_orden(request, orden_id):
     orden = get_object_or_404(OrdenServicio, pk=orden_id)
+    if orden.fecha_cierre:
+        messages.error(request, "Acceso denegado: Orden cerrada.")
+        return redirect('detalle_orden', orden_id=orden_id)
+    
     form = AgregarServicioForm(request.POST)
     if form.is_valid():
         servicio = form.cleaned_data['servicio']
-        if servicio in orden.servicios.all():
-            messages.warning(request, f'El servicio "{servicio.nombre_servicio}" ya estaba agregado.')
-        else:
+        if servicio not in orden.servicios.all():
             orden.servicios.add(servicio)
-            BitacoraOrden.objects.create(orden=orden, usuario=request.user, descripcion=f"Se agregó el servicio: {servicio.nombre_servicio}")
-            messages.success(request, f'Servicio "{servicio.nombre_servicio}" agregado correctamente.')
-    else:
-        messages.error(request, 'Error al agregar el servicio.')
+            BitacoraOrden.objects.create(orden=orden, usuario=request.user, descripcion=f"Servicio vinculado: {servicio.nombre_servicio}")
     return redirect('detalle_orden', orden_id=orden_id)
 
 @login_required
-@permission_required('gestion_ordenes.change_ordenservicio', raise_exception=True)
 def eliminar_servicio_orden(request, orden_id, servicio_id):
     orden = get_object_or_404(OrdenServicio, pk=orden_id)
+    if orden.fecha_cierre: return redirect('detalle_orden', orden_id=orden_id)
     servicio = get_object_or_404(TipoServicio, pk=servicio_id)
     orden.servicios.remove(servicio)
-    BitacoraOrden.objects.create(orden=orden, usuario=request.user, descripcion=f"Se eliminó el servicio: {servicio.nombre_servicio}")
-    messages.success(request, f'Servicio "{servicio.nombre_servicio}" eliminado.')
+    BitacoraOrden.objects.create(orden=orden, usuario=request.user, descripcion=f"Servicio eliminado: {servicio.nombre_servicio}")
     return redirect('detalle_orden', orden_id=orden_id)
 
 # --- GESTIÓN COTIZACIONES ---
 
 @login_required
-@permission_required('gestion_ordenes.add_cotizacion', raise_exception=True)
 def crear_cotizacion(request, orden_id):
     orden = get_object_or_404(OrdenServicio, pk=orden_id)
-    
+    if orden.fecha_cierre: return redirect('detalle_orden', orden_id=orden.id)
     if request.method == 'POST':
         form = CotizacionForm(request.POST)
         if form.is_valid():
-            cotizacion = form.save(commit=False)
-            cotizacion.orden = orden
-            cotizacion.usuario_creador = request.user
-            cotizacion.save()
-            
-            BitacoraOrden.objects.create(orden=orden, usuario=request.user, descripcion=f"Se generó Cotización #{cotizacion.id}. Concepto: {cotizacion.concepto[:30]}...")
-            messages.success(request, 'Cotización registrada correctamente.')
+            cot = form.save(commit=False)
+            cot.orden = orden
+            cot.usuario_creador = request.user
+            cot.save()
+            BitacoraOrden.objects.create(orden=orden, usuario=request.user, descripcion=f"Cotización registrada.")
             return redirect('detalle_orden', orden_id=orden.id)
-    else:
-        form = CotizacionForm()
-
-    return render(request, 'gestion_ordenes/cotizacion_form.html', {'form': form, 'orden': orden})
+    return render(request, 'gestion_ordenes/cotizacion_form.html', {'form': CotizacionForm(), 'orden': orden})
 
 @login_required
 @permission_required('gestion_ordenes.change_cotizacion', raise_exception=True)
@@ -266,42 +272,25 @@ def eliminar_cotizacion(request, orden_id, cotizacion_id):
 # --- GESTIÓN TRANSFERENCIAS ---
 
 @login_required
-@permission_required('gestion_ordenes.add_transferencia', raise_exception=True)
 def crear_transferencia(request, orden_id):
     orden = get_object_or_404(OrdenServicio, pk=orden_id)
-    
-    # Fábrica con extra=1 para crear (queremos 1 fila vacía al inicio)
-    ItemFormSet = inlineformset_factory(Transferencia, ItemTransferido, form=ItemTransferidoForm, extra=1, can_delete=True)
-
+    if orden.fecha_cierre: return redirect('detalle_orden', orden_id=orden.id)
+    ItemFormSet = inlineformset_factory(Transferencia, ItemTransferido, form=ItemTransferidoForm, extra=1)
     if request.method == 'POST':
         form = TransferenciaForm(request.POST)
         formset = ItemFormSet(request.POST)
-        
         if form.is_valid() and formset.is_valid():
-            # Validar al menos 1 ítem real
-            items_validos = [f for f in formset if f.cleaned_data and not f.cleaned_data.get('DELETE', False)]
-            
-            if not items_validos:
-                messages.error(request, 'Debes agregar al menos un ítem a la transferencia.')
-            else:
-                with transaction.atomic():
-                    transferencia = form.save(commit=False)
-                    transferencia.orden = orden
-                    transferencia.usuario_solicitante = request.user
-                    transferencia.save()
-                    formset.instance = transferencia
-                    formset.save()
-                    
-                    BitacoraOrden.objects.create(orden=orden, usuario=request.user, descripcion=f"Solicitud Transferencia #{transferencia.id} creada.")
-                
-                messages.success(request, 'Transferencia solicitada.')
-                return redirect('detalle_orden', orden_id=orden.id)
-    else:
-        form = TransferenciaForm()
-        # Queryset none para que esté vacío, extra=1 pone la fila
-        formset = ItemFormSet(queryset=ItemTransferido.objects.none())
-
-    return render(request, 'gestion_ordenes/transferencia_form.html', {'form': form, 'formset': formset, 'orden': orden})
+            with transaction.atomic():
+                trans = form.save(commit=False)
+                trans.orden = orden
+                trans.usuario_solicitante = request.user
+                trans.save()
+                formset.instance = trans
+                formset.save()
+            return redirect('detalle_orden', orden_id=orden.id)
+    return render(request, 'gestion_ordenes/transferencia_form.html', {
+        'form': TransferenciaForm(), 'formset': ItemFormSet(queryset=ItemTransferido.objects.none()), 'orden': orden
+    })
 
 @login_required
 @permission_required('gestion_ordenes.change_transferencia', raise_exception=True)
@@ -362,4 +351,21 @@ def eliminar_transferencia(request, orden_id, transferencia_id):
     
     transferencia.delete()
     messages.success(request, 'Transferencia eliminada.')
+    return redirect('detalle_orden', orden_id=orden.id)
+
+@login_required
+@permission_required('gestion_ordenes.change_ordenservicio', raise_exception=True)
+@require_POST
+def actualizar_estado_orden(request, orden_id):
+    """Cambio de estado operativo (Técnico/Gerente)."""
+    orden = get_object_or_404(OrdenServicio, pk=orden_id)
+    if orden.fecha_cierre: return redirect('detalle_orden', orden_id=orden.id)
+    
+    nuevo_estado = request.POST.get('nuevo_estado')
+    if nuevo_estado in dict(OrdenServicio.ESTADO_OPCIONES):
+        anterior = orden.estado
+        orden.estado = nuevo_estado
+        orden.save()
+        BitacoraOrden.objects.create(orden=orden, usuario=request.user, descripcion=f"Estado: {anterior} -> {nuevo_estado}")
+        messages.success(request, f"Avance registrado: {nuevo_estado}")
     return redirect('detalle_orden', orden_id=orden.id)

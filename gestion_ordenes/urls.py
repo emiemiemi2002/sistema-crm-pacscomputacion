@@ -31,4 +31,7 @@ urlpatterns = [
     path('orden/<int:orden_id>/transferencia/crear/', views.crear_transferencia, name='crear_transferencia'),
     path('orden/<int:orden_id>/transferencia/editar/<int:transferencia_id>/', views.editar_transferencia, name='editar_transferencia'),
     path('orden/<int:orden_id>/transferencia/eliminar/<int:transferencia_id>/', views.eliminar_transferencia, name='eliminar_transferencia'),
+
+    # Actualización de estado de la orden
+    path('orden/<int:orden_id>/estado/', views.actualizar_estado_orden, name='actualizar_estado_orden'),
 ]

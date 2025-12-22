@@ -1,0 +1,324 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard Recepción - CRM PACS{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* --- ESTRUCTURA Y SEPARACIÓN --- */
+    .dashboard-container {
+        padding-top: 1rem;
+    }
+
+    /* Encabezado: Título y Bienvenida */
+    .dashboard-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-end;
+        margin-bottom: 3.5rem; /* Aumento de separación con la siguiente sección */
+    }
+
+    .header-info {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem; /* Separación clara entre Título y Bienvenida */
+    }
+
+    .page-title {
+        font-size: 2.2rem;
+        font-weight: 800;
+        color: var(--color-primario);
+        margin: 0;
+        line-height: 1;
+    }
+
+    .welcome-text {
+        font-size: 1.1rem;
+        color: var(--color-texto-secundario);
+        margin: 0;
+    }
+
+    /* Ajuste de márgenes entre secciones principales */
+    .kpi-section {
+        margin-bottom: 4rem; /* Separación generosa entre KPIs y el contenido inferior */
+    }
+
+    /* --- TARJETAS DE KPI --- */
+    .kpi-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 2rem;
+    }
+
+    .kpi-card {
+        background: white;
+        border-radius: 16px;
+        padding: 2rem;
+        border: 1px solid var(--color-borde);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+        display: flex;
+        align-items: center;
+        transition: transform 0.2s;
+    }
+
+    .kpi-card:hover {
+        transform: translateY(-5px);
+    }
+
+    .kpi-icon-box {
+        width: 64px;
+        height: 64px;
+        border-radius: 14px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.8rem;
+        margin-right: 1.5rem;
+    }
+
+    .bg-active { background-color: #e3f2fd; color: #1976d2; }
+    .bg-closed { background-color: #e8f5e9; color: #2e7d32; }
+    .bg-delivery { background-color: #fff3e0; color: #ef6c00; }
+
+    .kpi-numbers h3 {
+        margin: 0;
+        font-size: 2.4rem;
+        font-weight: 800;
+        color: var(--color-primario);
+        line-height: 1;
+    }
+
+    .kpi-numbers p {
+        margin: 0.4rem 0 0 0;
+        font-size: 0.9rem;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        font-weight: 700;
+        color: var(--color-texto-secundario);
+    }
+
+    /* --- LAYOUT DE PANELES --- */
+    .dashboard-main-grid {
+        display: grid;
+        grid-template-columns: 1.8fr 1.2fr;
+        gap: 2.5rem;
+    }
+
+    @media (max-width: 1024px) {
+        .dashboard-main-grid { grid-template-columns: 1fr; }
+    }
+
+    .panel-card {
+        background: white;
+        border: 1px solid var(--color-borde);
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.02);
+    }
+
+    .panel-header {
+        padding: 1.25rem 1.5rem;
+        border-bottom: 1px solid var(--color-borde);
+        background-color: #fff;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+
+    .panel-header h2 {
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: var(--color-primario);
+        margin: 0;
+    }
+
+    /* Listas Interactivas */
+    .row-link {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1.25rem 1.5rem;
+        text-decoration: none;
+        color: inherit;
+        border-bottom: 1px solid var(--color-borde);
+        transition: background 0.2s;
+    }
+
+    .row-link:last-child { border-bottom: none; }
+    .row-link:hover { background-color: #f9fbfd; }
+
+    .row-main { display: flex; flex-direction: column; gap: 0.3rem; }
+    .row-title { font-weight: 700; color: #333; font-size: 1.05rem; }
+    .row-sub { font-size: 0.85rem; color: #666; display: flex; gap: 10px; align-items: center; }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+
+    /* Feed Estilizado */
+    .activity-feed { padding: 1.5rem; }
+    .feed-item {
+        position: relative;
+        padding-left: 24px;
+        padding-bottom: 1.8rem;
+        border-left: 2px solid #edf2f7;
+    }
+    .feed-item:last-child { padding-bottom: 0; border-left-color: transparent; }
+    .feed-marker {
+        position: absolute;
+        left: -6px; top: 4px;
+        width: 10px; height: 10px;
+        background: var(--color-acento-verde);
+        border: 2px solid white;
+        border-radius: 50%;
+        box-shadow: 0 0 0 1px var(--color-primario);
+    }
+    .feed-content { font-size: 0.95rem; color: #444; line-height: 1.4; }
+    .feed-time { font-size: 0.8rem; color: #999; margin-top: 0.3rem; display: block; }
+
+    .empty-msg {
+        padding: 4rem 2rem;
+        text-align: center;
+        color: #aaa;
+        font-style: italic;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="dashboard-container">
+
+    <!-- 1. ENCABEZADO PRINCIPAL -->
+    <header class="dashboard-header">
+        <div class="header-info">
+            <h1 class="page-title">Panel de Recepción</h1>
+            <p class="welcome-text">Bienvenido al sistema, <strong>{{ user.first_name|default:user.username }}</strong></p>
+        </div>
+
+        <!-- Botón con clase global .btn-action y SVG corregido -->
+        <a href="{% url 'crear_orden' %}" class="btn btn-action">
+            <svg style="width:20px;height:20px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+            </svg>
+            Nueva Orden
+        </a>
+    </header>
+
+    <!-- 2. SECCIÓN DE INDICADORES (KPIs) -->
+    <section class="kpi-section">
+        <div class="kpi-grid">
+            <div class="kpi-card">
+                <div class="kpi-icon-box bg-active"><i class="fas fa-folder-open"></i></div>
+                <div class="kpi-numbers">
+                    <h3>{{ kpi_abiertas }}</h3>
+                    <p>Órdenes Activas</p>
+                </div>
+            </div>
+
+            <div class="kpi-card">
+                <div class="kpi-icon-box bg-closed"><i class="fas fa-check-double"></i></div>
+                <div class="kpi-numbers">
+                    <h3>{{ kpi_cerradas_hoy }}</h3>
+                    <p>Cerradas Hoy</p>
+                </div>
+            </div>
+
+            <div class="kpi-card">
+                <div class="kpi-icon-box bg-delivery"><i class="fas fa-truck-loading"></i></div>
+                <div class="kpi-numbers">
+                    <h3>{{ ordenes_para_entrega.count }}</h3>
+                    <p>Pendientes de Entrega</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 3. LAYOUT PRINCIPAL -->
+    <div class="dashboard-main-grid">
+        
+        <!-- Columna de Tareas Pendientes -->
+        <div class="tasks-column">
+            
+            <!-- Panel A: Listas para Entrega -->
+            <div class="panel-card" style="margin-bottom: 2.5rem;">
+                <div class="panel-header">
+                    <i class="fas fa-box-open" style="color: #2e7d32;"></i>
+                    <h2>Órdenes Listas para Entrega</h2>
+                </div>
+                {% if ordenes_para_entrega %}
+                    <div>
+                        {% for orden in ordenes_para_entrega %}
+                        <a href="{% url 'detalle_orden' orden.id %}" class="row-link">
+                            <div class="row-main">
+                                <span class="row-title">#{{ orden.id }} — {{ orden.cliente.nombre_completo }}</span>
+                                <div class="row-sub">
+                                    <span class="status-dot" style="background: #2e7d32;"></span>
+                                    {{ orden.equipo.tipo_equipo }} | {{ orden.equipo.marca }} {{ orden.equipo.modelo }}
+                                </div>
+                            </div>
+                            <i class="fas fa-chevron-right" style="color: #ccc;"></i>
+                        </a>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="empty-msg">No hay órdenes finalizadas para entregar.</div>
+                {% endif %}
+            </div>
+
+            <!-- Panel B: Órdenes Sin Asignar -->
+            <div class="panel-card">
+                <div class="panel-header">
+                    <i class="fas fa-user-clock" style="color: #f57c00;"></i>
+                    <h2>Nuevas Órdenes sin Asignar</h2>
+                </div>
+                {% if ordenes_sin_asignar %}
+                    <div>
+                        {% for orden in ordenes_sin_asignar %}
+                        <a href="{% url 'editar_orden' orden.id %}" class="row-link">
+                            <div class="row-main">
+                                <span class="row-title">#{{ orden.id }} — {{ orden.cliente.nombre_completo }}</span>
+                                <div class="row-sub">
+                                    <i class="far fa-calendar-alt"></i> Ingreso: {{ orden.fecha_creacion|date:"d/m H:i" }}
+                                </div>
+                            </div>
+                            <span class="btn btn-primary" style="padding: 0.4rem 0.8rem; font-size: 0.8rem;">Asignar</span>
+                        </a>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="empty-msg">No hay órdenes nuevas pendientes de asignación.</div>
+                {% endif %}
+            </div>
+
+        </div>
+
+        <!-- Columna de Actividad Reciente -->
+        <div class="activity-column">
+            <div class="panel-card">
+                <div class="panel-header">
+                    <i class="fas fa-stream" style="color: var(--color-primario);"></i>
+                    <h2>Actividad del Sistema</h2>
+                </div>
+                <div class="activity-feed">
+                    {% for entrada in feed_actividad %}
+                    <div class="feed-item">
+                        <div class="feed-marker"></div>
+                        <div class="feed-content">
+                            <strong>{{ entrada.usuario.username }}</strong> actualizó la 
+                            <a href="{% url 'detalle_orden' entrada.orden.id %}" style="color: var(--color-primario); font-weight: 700; text-decoration: none;">OS #{{ entrada.orden.id }}</a>:
+                            <br>
+                            <span style="color: #666;">"{{ entrada.descripcion|truncatechars:65 }}"</span>
+                            <span class="feed-time"><i class="far fa-clock"></i> {{ entrada.fecha_hora|timesince }} atrás</span>
+                        </div>
+                    </div>
+                    {% empty %}
+                        <div class="empty-msg">Sin actividad reciente.</div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- Font Awesome para los iconos si no está cargado globalmente -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+{% endblock %}

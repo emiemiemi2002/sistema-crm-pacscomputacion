@@ -45,6 +45,7 @@ INSTALLED_APPS = [
     'gestion_clientes',
     'catalogo',
     'reportes',
+    'dashboard',
 ]
 
 MIDDLEWARE = [
