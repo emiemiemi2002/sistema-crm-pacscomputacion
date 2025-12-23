@@ -244,7 +244,7 @@
                 {% if ordenes_para_entrega %}
                     <div>
                         {% for orden in ordenes_para_entrega %}
-                        <a href="{% url 'detalle_orden' orden.id %}" class="row-link">
+                        <a href="{% url 'editar_orden' orden.id %}" class="row-link">
                             <div class="row-main">
                                 <span class="row-title">#{{ orden.id }} — {{ orden.cliente.nombre_completo }}</span>
                                 <div class="row-sub">

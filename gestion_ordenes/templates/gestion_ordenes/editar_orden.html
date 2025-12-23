@@ -1,160 +1,219 @@
 {% extends 'base.html' %}
 
-{% block title %}Finalizar Orden #{{ orden.id }} - CRM PACS{% endblock %}
+{% block title %}Administrar Orden #{{ orden.id }} - CRM PACS{% endblock %}
 
 {% block extra_css %}
 <style>
-    .page-header { margin-bottom: 2rem; }
-    .page-title { font-size: 2rem; font-weight: 700; color: var(--color-primario); }
-
-    .order-form { background: var(--color-fondo-card); border: 1px solid var(--color-borde); border-radius: 12px; padding: 2.5rem; box-shadow: 0 4px 12px rgba(0,0,0,0.04); }
+    /* Cabecera */
+    .page-header { 
+        display: flex; justify-content: space-between; align-items: center; margin-bottom: 2.5rem; 
+        border-bottom: 1px solid var(--color-borde); padding-bottom: 1rem;
+    }
+    .page-title { font-size: 2rem; font-weight: 700; color: var(--color-primario); margin: 0; }
     
-    .form-section { margin-bottom: 2.5rem; padding-bottom: 1.5rem; border-bottom: 1px dashed var(--color-borde); }
-    .form-section h2 { font-size: 1.25rem; font-weight: 600; color: var(--color-primario); margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.75rem; }
-    
-    .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.5rem 2rem; }
-    .form-group { display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1rem; }
-    
-    /* Estilos para Info Estática (Readonly) */
-    .static-info { background: #f8f9fa; padding: 1rem; border-radius: 8px; border: 1px solid #e9ecef; }
-    .static-info strong { color: #333; display: block; font-size: 1rem; }
-    .static-info small { color: #666; display: block; margin-top: 0.25rem; font-size: 0.85rem; }
-    
-    label { font-size: 0.9rem; font-weight: 600; color: var(--color-texto-secundario); }
-    
-    /* Input Select destacado para el Cierre */
-    .closure-select { 
-        width: 100%; padding: 1rem; border-radius: 8px; 
-        border: 2px solid var(--color-primario); background: #fff; 
-        font-size: 1.1rem; font-weight: 600; color: var(--color-primario);
+    .status-pill {
+        display: inline-block; padding: 0.4rem 1rem; border-radius: 20px;
+        background: #f0f4f8; color: var(--color-primario); font-weight: 600; font-size: 0.9rem;
+        margin-left: 1rem; vertical-align: middle;
     }
 
-    .form-actions { display: flex; justify-content: flex-end; gap: 1rem; margin-top: 2rem; }
-    
-    /* Alerta visual de Cierre */
-    .closure-alert {
-        background-color: #fff3cd; color: #856404; border: 1px solid #ffeeba;
-        padding: 1rem; border-radius: 8px; margin-bottom: 2rem;
-        display: flex; align-items: center; gap: 10px;
+    /* Grid Layout */
+    .admin-grid { display: grid; grid-template-columns: 1.5fr 1fr; gap: 2rem; }
+    @media (max-width: 992px) { .admin-grid { grid-template-columns: 1fr; } }
+
+    /* Tarjetas */
+    .admin-card { 
+        background: white; border: 1px solid var(--color-borde); 
+        border-radius: 12px; overflow: hidden; margin-bottom: 2rem; 
+        box-shadow: 0 4px 12px rgba(0,0,0,0.03);
     }
+    .card-header { 
+        padding: 1.2rem 1.5rem; border-bottom: 1px solid var(--color-borde); 
+        background: #fcfcfc; font-weight: 700; color: var(--color-primario); 
+        display: flex; align-items: center; gap: 10px; font-size: 1.05rem;
+    }
+    .card-body { padding: 1.8rem; }
+
+    /* Inputs */
+    label { font-weight: 600; font-size: 0.9rem; color: var(--color-texto-secundario); display: block; margin-bottom: 0.5rem; }
+    input, select { 
+        width: 100%; padding: 0.75rem; border-radius: 8px; 
+        border: 1px solid var(--color-borde); background-color: #fff; 
+        font-family: inherit; font-size: 0.95rem; transition: border-color 0.2s;
+    }
+    input:focus, select:focus { border-color: var(--color-primario); outline: none; box-shadow: 0 0 0 3px rgba(44, 62, 80, 0.1); }
+    
+    .form-group { margin-bottom: 1.5rem; }
+
+    /* Bloqueo Visual */
+    .locked-input { 
+        background-color: #f1f3f5; color: #6c757d; border-color: #e9ecef; cursor: not-allowed; 
+        padding: 0.75rem; border-radius: 8px; font-size: 0.95rem;
+    }
+    .lock-icon { float: right; font-size: 0.9rem; color: #adb5bd; margin-top: 3px; }
+
+    /* Botones */
+    .btn-update { 
+        width: 100%; background: var(--color-primario); color: white; 
+        padding: 0.9rem; border: none; border-radius: 8px; cursor: pointer; 
+        font-weight: 600; font-size: 1rem; transition: background 0.2s;
+    }
+    .btn-update:hover { background: #34495e; }
+
+    .btn-close-order { 
+        width: 100%; background: #2e7d32; color: white; padding: 1rem; 
+        border: none; border-radius: 8px; cursor: pointer; 
+        font-weight: 700; font-size: 1.1rem; margin-top: 10px; 
+        box-shadow: 0 4px 6px rgba(46, 125, 50, 0.2);
+    }
+    .btn-close-order:hover { background-color: #1b5e20; }
+    
+    .btn-close-order.cancel { background: #c62828; box-shadow: 0 4px 6px rgba(198, 40, 40, 0.2); }
+    .btn-close-order.cancel:hover { background-color: #b71c1c; }
+
+    /* Sección de Cierre */
+    .closure-select { font-size: 1.1rem; border: 2px solid var(--color-primario); padding: 0.8rem; }
 </style>
 {% endblock %}
 
 {% block content %}
 
     <div class="page-header">
-        <h1 class="page-title">Finalizar y Cerrar Orden #{{ orden.id }}</h1>
-    </div>
-
-    <div class="closure-alert">
-        <i class="fas fa-info-circle" style="font-size: 1.5rem;"></i>
         <div>
-            <strong>Atención:</strong> Estás a punto de cerrar esta orden. 
-            Al confirmar, se registrará la fecha de cierre y no se podrán realizar más cambios.
+            <h1 class="page-title">
+                Administrar Orden #{{ orden.id }}
+                <span class="status-pill">{{ orden.estado }}</span>
+            </h1>
         </div>
+        <a href="{% url 'lista_ordenes' %}" class="btn btn-secondary" style="text-decoration:none; border:1px solid #ccc; color:#333; padding: 0.6rem 1.2rem; border-radius: 6px;">
+            &larr; Volver a la Lista
+        </a>
     </div>
 
-    <form method="POST" class="order-form">
-        {% csrf_token %}
-        
-        <!-- SECCIÓN 1: CLIENTE (Solo Lectura) -->
-        <section class="form-section">
-            <h2>
-                <svg style="width:24px;height:24px" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg> 
-                Cliente
-            </h2>
-            <div class="static-info">
-                <strong>{{ orden.cliente.nombre_completo }}</strong>
-                <small>Tel: {{ orden.cliente.telefono }} | RFC: {{ orden.cliente.rfc|default:"--" }}</small>
+    <!-- Mensajes Globales -->
+    {% if messages %}
+        <div style="margin-bottom: 2rem;">
+        {% for message in messages %}
+            <div style="padding: 1rem; border-radius: 8px; display: flex; justify-content: space-between; align-items: center;
+                {% if message.tags == 'error' %}background:#ffebee; color:#c62828; border:1px solid #ef9a9a;
+                {% else %}background:#e8f5e9; color:#2e7d32; border:1px solid #c8e6c9;{% endif %}">
+                <span>{{ message }}</span>
+                <button onclick="this.parentElement.style.display='none'" style="background:none; border:none; cursor:pointer; color:inherit; font-weight:bold;">&times;</button>
             </div>
-        </section>
-
-        <!-- SECCIÓN 2: EQUIPO (Solo Lectura) -->
-        <section class="form-section">
-            <h2>
-                <svg style="width:24px;height:24px" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg> 
-                Equipo
-            </h2>
-            <div class="static-info">
-                <strong>{{ orden.equipo.tipo_equipo }} {{ orden.equipo.marca }} {{ orden.equipo.modelo }}</strong>
-                <small>Serie: {{ orden.equipo.numero_serie|default:"S/N" }}</small>
-            </div>
-        </section>
-
-        <!-- SECCIÓN 3: DETALLES DEL SERVICIO (Solo Lectura para Contexto) -->
-        <section class="form-section">
-            <h2>
-                <svg style="width:24px;height:24px" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path></svg> 
-                Resumen del Servicio
-            </h2>
-            
-            <div class="form-group">
-                <label>Falla Reportada</label>
-                <div class="static-info" style="background: white;">{{ orden.descripcion_falla }}</div>
-            </div>
-            
-            <div class="form-grid">
-                <div class="form-group">
-                    <label>Estado Actual</label>
-                    <div class="static-info">
-                        <strong>{{ orden.estado }}</strong>
-                    </div>
-                </div>
-
-                <div class="form-group">
-                    <label>Contraseña Equipo</label>
-                    <div class="static-info">{{ orden.contrasena_equipo|default:"--" }}</div>
-                </div>
-                
-                <div class="form-group">
-                    <label>Prioridad</label>
-                    <div class="static-info">{{ orden.prioridad }}</div>
-                </div>
-                
-                <div class="form-group">
-                    <label>Técnico Responsable</label>
-                    <div class="static-info">
-                        {% if orden.tecnico_asignado %}
-                            {{ orden.tecnico_asignado.first_name }} {{ orden.tecnico_asignado.last_name }}
-                        {% else %}
-                            <span style="color:#d32f2f;">Sin asignar</span>
-                        {% endif %}
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <!-- SECCIÓN 4: ACCIÓN DE CIERRE (Editable) -->
-        <section class="form-section" style="border-bottom: none; background-color: #fcfcfc; padding: 20px; border-radius: 8px;">
-            <h2 style="color: #2e7d32; margin-bottom: 1rem;">
-                <i class="fas fa-check-circle" style="margin-right: 10px;"></i> Acción de Cierre
-            </h2>
-            
-            <div class="form-group">
-                <label for="estado" style="font-size: 1rem;">Seleccione el Estado Final para Cerrar la Orden:</label>
-                <select name="estado" id="estado" class="closure-select">
-                    <!-- Iteramos sobre 'estados_cierre' que envía la vista filtrada -->
-                    {% for codigo, nombre in estados_cierre %}
-                        <option value="{{ codigo }}">{{ nombre }}</option>
-                    {% empty %}
-                        <option value="">No hay acciones de cierre disponibles para el estado actual.</option>
-                    {% endfor %}
-                </select>
-                <small style="color: #666; margin-top: 5px;">
-                    * Si la orden está "Finalizada por Técnico", solo podrás entregarla. Si no, solo podrás cancelarla.
-                </small>
-            </div>
-        </section>
-
-        <div class="form-actions">
-            <a href="{% url 'lista_ordenes' %}" class="btn btn-secondary" style="text-decoration: none; background:#fff; border:1px solid #ccc; color:#333; padding: 0.8rem 1.5rem; border-radius: 6px;">Cancelar</a>
-            
-            {% if estados_cierre %}
-            <button type="submit" class="btn btn-primary" style="padding: 0.8rem 1.5rem; font-size: 1rem;">
-                Confirmar Cierre
-            </button>
-            {% endif %}
+        {% endfor %}
         </div>
-    </form>
+    {% endif %}
+
+    <div class="admin-grid">
+        
+        <!-- COLUMNA 1: Edición de Detalles -->
+        <div class="column-left">
+            <form method="POST">
+                {% csrf_token %}
+                <input type="hidden" name="accion" value="guardar_detalles">
+
+                <div class="admin-card">
+                    <div class="card-header">
+                        <i class="fas fa-sliders-h"></i> Detalles Operativos
+                    </div>
+                    <div class="card-body">
+                        <!-- Técnico -->
+                        <div class="form-group">
+                            <label for="tecnico">Técnico Responsable</label>
+                            {% if puede_editar_tecnico %}
+                                <select name="tecnico_asignado" id="tecnico">
+                                    <option value="">-- Sin asignar --</option>
+                                    {% for tecnico in tecnicos_list %}
+                                        <option value="{{ tecnico.id }}" {% if orden.tecnico_asignado.id == tecnico.id %}selected{% endif %}>
+                                            {{ tecnico.first_name }} {{ tecnico.last_name }}
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                            {% else %}
+                                <div class="locked-input">
+                                    {{ orden.tecnico_asignado.get_full_name|default:"Sin asignar" }}
+                                    <i class="fas fa-lock lock-icon" title="Bloqueado: Orden Finalizada"></i>
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Prioridad -->
+                        <div class="form-group">
+                            <label for="prioridad">Prioridad</label>
+                            {% if puede_editar_prioridad %}
+                                <select name="prioridad" id="prioridad">
+                                    {% for codigo, nombre in prioridades %}
+                                        <option value="{{ codigo }}" {% if orden.prioridad == codigo %}selected{% endif %}>{{ nombre }}</option>
+                                    {% endfor %}
+                                </select>
+                            {% else %}
+                                <div class="locked-input">
+                                    {{ orden.prioridad }}
+                                    <i class="fas fa-lock lock-icon"></i>
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Contraseña (Siempre abierta) -->
+                        <div class="form-group">
+                            <label for="contrasena">Contraseña / PIN del Equipo</label>
+                            <input type="text" name="contrasena_equipo" id="contrasena" value="{{ orden.contrasena_equipo|default:'' }}">
+                        </div>
+
+                        <button type="submit" class="btn-update">Guardar Cambios</button>
+                    </div>
+                </div>
+            </form>
+
+            <!-- Info Estática -->
+            <div class="admin-card">
+                <div class="card-header" style="background:#fff; border-bottom:none; color:#666;">
+                    <i class="fas fa-info-circle"></i> Resumen Fijo
+                </div>
+                <div class="card-body" style="background-color: #f9f9f9; padding-top:0;">
+                    <div style="margin-bottom:10px;"><strong>Cliente:</strong> {{ orden.cliente.nombre_completo }}</div>
+                    <div style="margin-bottom:10px;"><strong>Equipo:</strong> {{ orden.equipo.tipo_equipo }} {{ orden.equipo.modelo }}</div>
+                    <div><strong>Falla:</strong> {{ orden.descripcion_falla }}</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- COLUMNA 2: Cierre de Orden -->
+        <div class="column-right">
+            <form method="POST" onsubmit="return confirm('¿Estás seguro? Esta acción cerrará la orden permanentemente y no se podrá deshacer.');">
+                {% csrf_token %}
+                <input type="hidden" name="accion" value="cerrar_orden">
+
+                <div class="admin-card" style="border-color: {% if es_finalizada %}#2e7d32{% else %}#c62828{% endif %};">
+                    <div class="card-header" style="background-color: {% if es_finalizada %}#e8f5e9{% else %}#ffebee{% endif %}; color: {% if es_finalizada %}#1b5e20{% else %}#b71c1c{% endif %};">
+                        <i class="fas fa-check-double"></i> Finalización
+                    </div>
+                    <div class="card-body">
+                        <label for="estado_cierre" style="font-size:1rem; margin-bottom:10px;">Acción disponible:</label>
+                        <select name="estado_cierre" id="estado_cierre" class="closure-select">
+                            {% for codigo, nombre in estados_cierre %}
+                                <option value="{{ codigo }}">{{ nombre }}</option>
+                            {% empty %}
+                                <option value="">No hay acciones disponibles</option>
+                            {% endfor %}
+                        </select>
+
+                        <div style="margin-top: 1.5rem; font-size: 0.9rem; line-height: 1.5; color: #555;">
+                            {% if es_finalizada %}
+                                <p><i class="fas fa-check-circle" style="color:green;"></i> El técnico ha reportado el trabajo como <strong>Finalizado</strong>.</p>
+                                <p>Seleccione "Entregada" una vez que el cliente haya recogido el equipo.</p>
+                                <button type="submit" class="btn-close-order">Confirmar Entrega</button>
+                            {% else %}
+                                <p><i class="fas fa-exclamation-triangle" style="color:#c62828;"></i> El trabajo <strong>NO ha sido finalizado</strong>.</p>
+                                <p>Solo puedes <strong>Cancelar</strong> la orden si el cliente desistió del servicio.</p>
+                                <button type="submit" class="btn-close-order cancel">Confirmar Cancelación</button>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+    </div>
 
 {% endblock %}

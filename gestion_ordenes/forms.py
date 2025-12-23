@@ -2,7 +2,7 @@ from django import forms
 from .models import BitacoraOrden, Cotizacion, Transferencia, ItemTransferido
 from catalogo.models import TipoServicio
 
-# --- Formularios base (Bitácora y Servicio) ---
+# --- Formularios base ---
 class BitacoraForm(forms.ModelForm):
     class Meta:
         model = BitacoraOrden
@@ -29,35 +29,30 @@ class CotizacionForm(forms.ModelForm):
             'costo_refacciones': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'min': '0', 'required': True}),
             'costo_mano_obra': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'min': '0', 'required': True}),
             'estado': forms.Select(attrs={'class': 'form-control'}),
-            
-            # IDs explícitos para que el JS los encuentre sin fallas
             'fuente_refaccion': forms.Select(attrs={'class': 'form-control', 'id': 'id_fuente_refaccion', 'required': True}),
             'proveedor': forms.Select(attrs={'class': 'form-control', 'id': 'id_proveedor'}),
-        }
-        labels = {
-            'fuente_refaccion': 'Origen de Refacción *',
-            'costo_refacciones': 'Costo Refacciones *',
-            'costo_mano_obra': 'Costo Mano de Obra *',
-            'proveedor': 'Proveedor',
         }
 
     def clean(self):
         cleaned_data = super().clean()
         fuente = cleaned_data.get('fuente_refaccion')
         proveedor = cleaned_data.get('proveedor')
-        costo_ref = cleaned_data.get('costo_refacciones')
-        costo_mo = cleaned_data.get('costo_mano_obra')
+        costo_ref = cleaned_data.get('costo_refacciones') or 0
+        costo_mo = cleaned_data.get('costo_mano_obra') or 0
 
-        # Validación estricta de campos numéricos (por si el HTML se salta)
-        if costo_ref is None: self.add_error('costo_refacciones', 'Este campo es obligatorio.')
-        if costo_mo is None: self.add_error('costo_mano_obra', 'Este campo es obligatorio.')
-
-        # Lógica de Proveedor
-        if fuente == 'Pedido a Proveedor' and not proveedor:
-            self.add_error('proveedor', 'Si el origen es externo, debe seleccionar un proveedor.')
+        # 1. Validación de Proveedor (Corregida coincidencia de string)
+        # Usamos el valor exacto 'Pedido a proveedor' definido en el modelo
+        if fuente == 'Pedido a proveedor' and not proveedor:
+            self.add_error('proveedor', 'Debe seleccionar un proveedor si el origen es externo.')
         
-        if fuente == 'Stock Interno':
-            cleaned_data['proveedor'] = None # Limpiar si seleccionó uno por error
+        if fuente == 'Stock interno':
+            cleaned_data['proveedor'] = None
+
+        # 2. Validación de Costos (Evitar cotizaciones en $0.00)
+        if costo_ref + costo_mo <= 0:
+            msg = "El total de la cotización debe ser mayor a 0. Defina costo de refacciones o mano de obra."
+            self.add_error('costo_refacciones', msg)
+            self.add_error('costo_mano_obra', msg)
         
         return cleaned_data
 
@@ -77,6 +72,6 @@ class ItemTransferidoForm(forms.ModelForm):
         fields = ['descripcion_item', 'cantidad', 'numero_serie']
         widgets = {
             'descripcion_item': forms.TextInput(attrs={'class': 'form-control', 'required': True}),
-            'cantidad': forms.NumberInput(attrs={'class': 'form-control', 'min': '1', 'required': True, 'style': 'width: 80px;'}),
+            'cantidad': forms.NumberInput(attrs={'class': 'form-control', 'min': '1', 'required': True}),
             'numero_serie': forms.TextInput(attrs={'class': 'form-control'}),
         }

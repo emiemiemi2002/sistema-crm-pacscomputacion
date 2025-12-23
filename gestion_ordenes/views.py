@@ -8,7 +8,7 @@ from django.views.decorators.http import require_GET, require_POST
 from django.core.paginator import Paginator
 from django.utils.dateparse import parse_date
 from django.utils import timezone
-from django.db import transaction # Importante para guardar padre e hijos atómicamente
+from django.db import transaction
 from django.forms import inlineformset_factory
 
 from gestion_clientes.models import Cliente, Equipo
@@ -95,40 +95,115 @@ def crear_orden(request):
 @login_required
 @permission_required('gestion_ordenes.change_ordenservicio', raise_exception=True)
 def editar_orden(request, orden_id):
-    """Formulario de CIERRE para Recepción/Gerencia."""
+    """
+    Panel de Administración de Orden: Permite editar detalles operativos Y cerrar la orden.
+    """
     orden = get_object_or_404(OrdenServicio, pk=orden_id)
 
+    # 1. SI ESTÁ CERRADA: Modo Solo Lectura
     if orden.fecha_cierre:
-        messages.error(request, "Esta orden está cerrada y no permite cambios administrativos.")
+        messages.error(request, "Esta orden ya se encuentra cerrada y no puede ser modificada.")
         return redirect('detalle_orden', orden_id=orden.id)
 
+    # 2. Determinar permisos de edición
+    es_finalizada = orden.estado == OrdenServicio.ESTADO_FINALIZADA_TECNICO
+    puede_editar_tecnico = not es_finalizada
+    puede_editar_prioridad = not es_finalizada
+
     if request.method == 'POST':
-        nuevo_estado = request.POST.get('estado')
-        if nuevo_estado in [OrdenServicio.ESTADO_ENTREGADA, OrdenServicio.ESTADO_CANCELADA]:
-            # Validaciones de flujo
-            if nuevo_estado == OrdenServicio.ESTADO_ENTREGADA and orden.estado != OrdenServicio.ESTADO_FINALIZADA_TECNICO:
-                messages.error(request, "No se puede entregar si el técnico no ha finalizado.")
+        accion = request.POST.get('accion')
+
+        # --- CASO A: GUARDAR DETALLES ---
+        if accion == 'guardar_detalles':
+            cambios = []
+            
+            # Contraseña
+            nueva_pass = request.POST.get('contrasena_equipo')
+            if orden.contrasena_equipo != nueva_pass:
+                orden.contrasena_equipo = nueva_pass
+                cambios.append("Contraseña actualizada")
+
+            # Prioridad
+            if puede_editar_prioridad:
+                nueva_prio = request.POST.get('prioridad')
+                if orden.prioridad != nueva_prio:
+                    orden.prioridad = nueva_prio
+                    cambios.append(f"Prioridad: {nueva_prio}")
+
+            # Técnico
+            if puede_editar_tecnico:
+                nuevo_tec_id = request.POST.get('tecnico_asignado')
+                if nuevo_tec_id:
+                    nuevo_tec = User.objects.get(pk=nuevo_tec_id)
+                    if orden.tecnico_asignado != nuevo_tec:
+                        orden.tecnico_asignado = nuevo_tec
+                        cambios.append(f"Técnico: {nuevo_tec.username}")
+                else:
+                    if orden.tecnico_asignado:
+                        orden.tecnico_asignado = None
+                        cambios.append("Técnico desasignado")
+
+            if cambios:
+                orden.save()
+                BitacoraOrden.objects.create(
+                    orden=orden, usuario=request.user, 
+                    descripcion=f"Edición administrativa: {', '.join(cambios)}"
+                )
+                messages.success(request, f"Detalles de la orden #{orden.id} actualizados.")
             else:
+                messages.info(request, "No se detectaron cambios en los detalles.")
+            
+            # REDIRECCIÓN A LISTA
+            return redirect('lista_ordenes')
+
+        # --- CASO B: CERRAR ORDEN ---
+        elif accion == 'cerrar_orden':
+            user_groups = request.user.groups.values_list('name', flat=True)
+            if not ('Gerente Servicio' in user_groups or 'Asistente Recepción' in user_groups or request.user.is_superuser):
+                messages.error(request, "No tienes permisos para cerrar órdenes.")
+                return redirect('editar_orden', orden_id=orden.id)
+
+            nuevo_estado = request.POST.get('estado_cierre')
+            
+            if nuevo_estado == OrdenServicio.ESTADO_ENTREGADA and not es_finalizada:
+                messages.error(request, "Error: No se puede entregar. El técnico aún no finaliza el servicio.")
+            elif nuevo_estado == OrdenServicio.ESTADO_CANCELADA and es_finalizada:
+                messages.error(request, "Error: No se puede cancelar. El servicio ya fue realizado.")
+            elif nuevo_estado in [OrdenServicio.ESTADO_ENTREGADA, OrdenServicio.ESTADO_CANCELADA]:
                 with transaction.atomic():
                     orden.estado = nuevo_estado
                     orden.fecha_cierre = timezone.now()
                     orden.save()
                     BitacoraOrden.objects.create(
                         orden=orden, usuario=request.user,
-                        descripcion=f"*** ORDEN CERRADA: {nuevo_estado} ***"
+                        descripcion=f"*** ORDEN CERRADA - ESTADO: {nuevo_estado.upper()} ***"
                     )
-                messages.success(request, f"Orden #{orden.id} cerrada correctamente.")
+                messages.success(request, f"Orden #{orden.id} cerrada exitosamente ({nuevo_estado}).")
+                # REDIRECCIÓN A LISTA (SOLICITUD CUMPLIDA)
                 return redirect('lista_ordenes')
+            else:
+                messages.error(request, "Estado de cierre no válido.")
 
-    estados_permitidos = []
-    if orden.estado == OrdenServicio.ESTADO_FINALIZADA_TECNICO:
-        estados_permitidos = [(OrdenServicio.ESTADO_ENTREGADA, 'Entregada')]
+    # --- PREPARACIÓN DEL CONTEXTO ---
+    tecnicos_list = User.objects.filter(groups__name='Técnico')
+    prioridades = OrdenServicio.PRIORIDAD_OPCIONES
+    
+    estados_cierre = []
+    if es_finalizada:
+        estados_cierre = [(OrdenServicio.ESTADO_ENTREGADA, 'Entregada al Cliente')]
     else:
-        estados_permitidos = [(OrdenServicio.ESTADO_CANCELADA, 'Cancelada')]
+        estados_cierre = [(OrdenServicio.ESTADO_CANCELADA, 'Cancelada')]
 
-    return render(request, 'gestion_ordenes/editar_orden.html', {
-        'orden': orden, 'estados_cierre': estados_permitidos
-    })
+    context = {
+        'orden': orden,
+        'tecnicos_list': tecnicos_list,
+        'prioridades': prioridades,
+        'estados_cierre': estados_cierre,
+        'puede_editar_tecnico': puede_editar_tecnico,
+        'puede_editar_prioridad': puede_editar_prioridad,
+        'es_finalizada': es_finalizada,
+    }
+    return render(request, 'gestion_ordenes/editar_orden.html', context)
 
 @login_required
 @permission_required('gestion_ordenes.delete_ordenservicio', raise_exception=True)
@@ -272,38 +347,50 @@ def eliminar_cotizacion(request, orden_id, cotizacion_id):
 # --- GESTIÓN TRANSFERENCIAS ---
 
 @login_required
+@permission_required('gestion_ordenes.add_transferencia', raise_exception=True)
 def crear_transferencia(request, orden_id):
     orden = get_object_or_404(OrdenServicio, pk=orden_id)
     if orden.fecha_cierre: return redirect('detalle_orden', orden_id=orden.id)
-    ItemFormSet = inlineformset_factory(Transferencia, ItemTransferido, form=ItemTransferidoForm, extra=1)
+    
+    ItemFormSet = inlineformset_factory(Transferencia, ItemTransferido, form=ItemTransferidoForm, extra=1, can_delete=True)
+
     if request.method == 'POST':
         form = TransferenciaForm(request.POST)
         formset = ItemFormSet(request.POST)
+        
         if form.is_valid() and formset.is_valid():
-            with transaction.atomic():
-                trans = form.save(commit=False)
-                trans.orden = orden
-                trans.usuario_solicitante = request.user
-                trans.save()
-                formset.instance = trans
-                formset.save()
-            return redirect('detalle_orden', orden_id=orden.id)
-    return render(request, 'gestion_ordenes/transferencia_form.html', {
-        'form': TransferenciaForm(), 'formset': ItemFormSet(queryset=ItemTransferido.objects.none()), 'orden': orden
-    })
+            # FILTRO CRÍTICO: Contar ítems que tienen datos Y no están marcados para borrar
+            valid_items = [
+                f for f in formset 
+                if f.cleaned_data and not f.cleaned_data.get('DELETE', False) and f.cleaned_data.get('descripcion_item')
+            ]
+            
+            if not valid_items:
+                messages.error(request, "No se puede guardar una transferencia sin ítems válidos.")
+            else:
+                with transaction.atomic():
+                    trans = form.save(commit=False)
+                    trans.orden = orden
+                    trans.usuario_solicitante = request.user
+                    trans.save()
+                    formset.instance = trans
+                    formset.save()
+                    BitacoraOrden.objects.create(orden=orden, usuario=request.user, descripcion=f"Transferencia #{trans.id} solicitada.")
+                messages.success(request, "Solicitud de transferencia enviada.")
+                return redirect('detalle_orden', orden_id=orden.id)
+    else:
+        form = TransferenciaForm()
+        formset = ItemFormSet(queryset=ItemTransferido.objects.none())
+
+    return render(request, 'gestion_ordenes/transferencia_form.html', {'form': form, 'formset': formset, 'orden': orden})
 
 @login_required
 @permission_required('gestion_ordenes.change_transferencia', raise_exception=True)
 def editar_transferencia(request, orden_id, transferencia_id):
     orden = get_object_or_404(OrdenServicio, pk=orden_id)
     transferencia = get_object_or_404(Transferencia, pk=transferencia_id, orden=orden)
+    if orden.fecha_cierre: return redirect('detalle_orden', orden_id=orden.id)
     
-    # Bloqueo si ya está autorizado (regla de negocio)
-    if transferencia.usuario_autoriza and not request.user.groups.filter(name='Gerente Servicio').exists():
-        messages.error(request, 'Transferencia ya autorizada. Solo lectura.')
-        return redirect('detalle_orden', orden_id=orden.id)
-
-    # SOLUCIÓN: Fábrica con extra=0 para editar (NO agrega filas vacías automáticas)
     ItemFormSetEdit = inlineformset_factory(Transferencia, ItemTransferido, form=ItemTransferidoForm, extra=0, can_delete=True)
 
     if request.method == 'POST':
@@ -311,31 +398,24 @@ def editar_transferencia(request, orden_id, transferencia_id):
         formset = ItemFormSetEdit(request.POST, instance=transferencia)
         
         if form.is_valid() and formset.is_valid():
-            items_validos = [f for f in formset if f.cleaned_data and not f.cleaned_data.get('DELETE', False)]
+            # Verificación de ítems restantes después de posibles borrados
+            valid_items = [
+                f for f in formset 
+                if f.cleaned_data and not f.cleaned_data.get('DELETE', False)
+            ]
             
-            if not items_validos:
-                messages.error(request, 'La transferencia no puede quedar vacía.')
+            if not valid_items:
+                messages.error(request, "La transferencia debe contener al menos un ítem. No puede borrar todos los elementos.")
             else:
                 form.save()
                 formset.save()
-                
-                if 'btn_autorizar' in request.POST and request.user.has_perm('gestion_ordenes.change_transferencia'):
-                    transferencia.usuario_autoriza = request.user
-                    transferencia.save()
-                    BitacoraOrden.objects.create(orden=orden, usuario=request.user, descripcion=f"AUTORIZADA Transferencia #{transferencia.id}")
-                    messages.success(request, 'Transferencia autorizada.')
-                else:
-                    BitacoraOrden.objects.create(orden=orden, usuario=request.user, descripcion=f"Actualizada Transferencia #{transferencia.id}")
-                    messages.success(request, 'Transferencia actualizada.')
-
+                messages.success(request, "Transferencia actualizada.")
                 return redirect('detalle_orden', orden_id=orden.id)
     else:
         form = TransferenciaForm(instance=transferencia)
         formset = ItemFormSetEdit(instance=transferencia)
 
-    return render(request, 'gestion_ordenes/transferencia_form.html', {
-        'form': form, 'formset': formset, 'orden': orden, 'transferencia': transferencia, 'editar': True
-    })
+    return render(request, 'gestion_ordenes/transferencia_form.html', {'form': form, 'formset': formset, 'orden': orden, 'transferencia': transferencia, 'editar': True})
 
 @login_required
 @permission_required('gestion_ordenes.delete_transferencia', raise_exception=True)
