@@ -1,6 +1,6 @@
 from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
-from django.db.models import Count, Q
+from django.db.models import Case, When, Value, IntegerField, Count, Q
 from django.utils import timezone
 from datetime import timedelta
 
@@ -81,30 +81,52 @@ def dashboard_recepcion(request):
 @login_required
 def dashboard_tecnico(request):
     """
-    UI-DASH-02: Cola de trabajo personal del técnico.
-    Enfoque: Lista limpia de tareas asignadas activas.
+    UI-DASH-02: Dashboard Técnico corregido.
     """
-    # Filtramos órdenes asignadas al usuario actual que NO estén cerradas
+    user = request.user
+    
+    # 1. CORRECCIÓN DE ORDENAMIENTO: Usar 'Normal' en lugar de 'Media'
+    priority_order = Case(
+        When(prioridad='Alta', then=Value(1)),
+        When(prioridad='Normal', then=Value(2)), # Corregido
+        When(prioridad='Baja', then=Value(3)),
+        default=Value(4),
+        output_field=IntegerField(),
+    )
+
+    # 2. Consulta Maestra
     mis_ordenes = OrdenServicio.objects.filter(
-        tecnico_asignado=request.user
+        tecnico_asignado=user
     ).exclude(
         estado__in=[
-            OrdenServicio.ESTADO_ENTREGADA, 
-            OrdenServicio.ESTADO_CANCELADA, 
-            OrdenServicio.ESTADO_FINALIZADA_TECNICO # Si ya la terminó, sale de su cola
+            OrdenServicio.ESTADO_FINALIZADA_TECNICO,
+            OrdenServicio.ESTADO_ENTREGADA,
+            OrdenServicio.ESTADO_CANCELADA
         ]
-    ).select_related('cliente', 'equipo').order_by(
-        # Orden personalizado: Prioridad Alta primero, luego por fecha (más antiguas primero)
-        'prioridad', 'fecha_creacion'
-    )
+    ).select_related('cliente', 'equipo').annotate(
+        prio_weight=priority_order
+    ).order_by('prio_weight', 'fecha_creacion')
+
+    # 3. KPIs Corregidos
+    detenidas_refaccion = mis_ordenes.filter(estado=OrdenServicio.ESTADO_ESPERANDO_REFACCION).count()
     
-    # Conteo rápido de mis pendientes
-    total_pendientes = mis_ordenes.count()
+    # CORRECCIÓN KPI: Solo contar "Nuevas" como pendientes de tocar.
+    # Si ya está "En diagnóstico", el técnico ya la tomó, así que sale de este contador.
+    pendientes_inicio = mis_ordenes.filter(estado=OrdenServicio.ESTADO_NUEVA).count()
+
+    criticas = mis_ordenes.filter(prioridad='Alta').count()
 
     context = {
         'mis_ordenes': mis_ordenes,
-        'total_pendientes': total_pendientes,
+        'stats': {
+            'total': mis_ordenes.count(),
+            'detenidas': detenidas_refaccion,
+            'por_diagnosticar': pendientes_inicio, # Variable renombrada lógicamente, aunque en template usaremos la misma key o adaptamos
+            'criticas': criticas,
+        },
+        'saludo': timezone.localtime().strftime('%H')
     }
+    
     return render(request, 'dashboard/dash_tecnico.html', context)
 
 @login_required
