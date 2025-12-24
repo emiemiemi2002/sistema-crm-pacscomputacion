@@ -3,9 +3,6 @@
 {% block title %}Supervisión de Servicio - PACS CRM{% endblock %}
 
 {% block extra_css %}
-<!-- Chart.js (Versión estable) -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
-
 <style>
     /* Estilos Dashboard Gerente */
     .dashboard-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; border-bottom: 1px solid var(--color-borde); padding-bottom: 1.5rem; }
@@ -150,82 +147,93 @@
         {% endif %}
     </div>
 
-    <!-- CONFIGURACIÓN DE GRÁFICOS -->
+    <!-- INYECCIÓN DE DATOS (SEGURA) -->
+    {{ chart_estado_labels|json_script:"data-estado-labels" }}
+    {{ chart_estado_data|json_script:"data-estado-data" }}
+    {{ chart_tecnico_labels|json_script:"data-tecnico-labels" }}
+    {{ chart_tecnico_data|json_script:"data-tecnico-data" }}
+
+    <!-- 
+      IMPORTANTE: Cargar Chart.js aquí para asegurar que está disponible
+      antes de ejecutar el script de inicialización.
+    -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            // 1. Obtener Datos Seguros desde Django (JSON)
-            // IMPORTANTE: El filtro |safe es vital aquí
-            const dataEstados = JSON.parse('{{ json_estados_data|safe }}');
-            const labelsEstados = JSON.parse('{{ json_estados_labels|safe }}');
-            const dataTecnicos = JSON.parse('{{ json_tecnicos_data|safe }}');
-            const labelsTecnicos = JSON.parse('{{ json_tecnicos_labels|safe }}');
+            try {
+                // Leer datos desde los script tags seguros
+                const labelsEstados = JSON.parse(document.getElementById('data-estado-labels').textContent);
+                const dataEstados = JSON.parse(document.getElementById('data-estado-data').textContent);
+                const labelsTecnicos = JSON.parse(document.getElementById('data-tecnico-labels').textContent);
+                const dataTecnicos = JSON.parse(document.getElementById('data-tecnico-data').textContent);
 
-            // Configuración Global
-            Chart.defaults.font.family = "'Segoe UI', sans-serif";
-            Chart.defaults.color = '#64748b';
+                // Configuración Global Chart.js
+                Chart.defaults.font.family = "'Segoe UI', sans-serif";
+                Chart.defaults.color = '#64748b';
 
-            // --- GRÁFICO 1: ESTADOS (Doughnut) ---
-            const ctxEstados = document.getElementById('chartEstados');
-            if (dataEstados.length > 0) {
-                new Chart(ctxEstados, {
-                    type: 'doughnut',
-                    data: {
-                        labels: labelsEstados,
-                        datasets: [{
-                            data: dataEstados,
-                            backgroundColor: [
-                                '#3b82f6', '#f59e0b', '#10b981', '#8b5cf6', '#ef4444', '#6366f1'
-                            ],
-                            borderWidth: 2,
-                            borderColor: '#ffffff'
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            legend: { position: 'right', labels: { boxWidth: 12, padding: 20 } }
+                // --- GRÁFICO 1: ESTADOS ---
+                const ctxEstados = document.getElementById('chartEstados');
+                if (dataEstados && dataEstados.length > 0) {
+                    new Chart(ctxEstados, {
+                        type: 'doughnut',
+                        data: {
+                            labels: labelsEstados,
+                            datasets: [{
+                                data: dataEstados,
+                                backgroundColor: ['#3b82f6', '#f59e0b', '#10b981', '#8b5cf6', '#ef4444', '#6366f1'],
+                                borderWidth: 2,
+                                borderColor: '#ffffff'
+                            }]
                         },
-                        layout: { padding: 10 }
-                    }
-                });
-            } else {
-                ctxEstados.parentElement.innerHTML = '<div class="empty-msg">No hay órdenes activas para graficar.</div>';
-            }
-
-            // --- GRÁFICO 2: TÉCNICOS (Bar) ---
-            const ctxTecnicos = document.getElementById('chartTecnicos');
-            if (dataTecnicos.length > 0) {
-                new Chart(ctxTecnicos, {
-                    type: 'bar',
-                    data: {
-                        labels: labelsTecnicos,
-                        datasets: [{
-                            label: 'Órdenes Asignadas',
-                            data: dataTecnicos,
-                            backgroundColor: '#3b82f6',
-                            borderRadius: 6,
-                            barPercentage: 0.6
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        scales: {
-                            y: { 
-                                beginAtZero: true, 
-                                ticks: { stepSize: 1 }, 
-                                grid: { borderDash: [4, 4] }
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: { position: 'right', labels: { boxWidth: 12, padding: 20 } }
                             },
-                            x: { grid: { display: false } }
-                        },
-                        plugins: {
-                            legend: { display: false }
+                            layout: { padding: 10 }
                         }
-                    }
-                });
-            } else {
-                ctxTecnicos.parentElement.innerHTML = '<div class="empty-msg">No hay asignaciones activas.</div>';
+                    });
+                } else {
+                    ctxEstados.parentElement.innerHTML = '<div class="empty-msg">No hay órdenes activas para graficar.</div>';
+                }
+
+                // --- GRÁFICO 2: TÉCNICOS ---
+                const ctxTecnicos = document.getElementById('chartTecnicos');
+                if (dataTecnicos && dataTecnicos.length > 0) {
+                    new Chart(ctxTecnicos, {
+                        type: 'bar',
+                        data: {
+                            labels: labelsTecnicos,
+                            datasets: [{
+                                label: 'Órdenes Asignadas',
+                                data: dataTecnicos,
+                                backgroundColor: '#3b82f6',
+                                borderRadius: 6,
+                                barPercentage: 0.6
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            scales: {
+                                y: { 
+                                    beginAtZero: true, 
+                                    ticks: { stepSize: 1 }, 
+                                    grid: { borderDash: [4, 4] } 
+                                },
+                                x: { grid: { display: false } }
+                            },
+                            plugins: { legend: { display: false } }
+                        }
+                    });
+                } else {
+                    ctxTecnicos.parentElement.innerHTML = '<div class="empty-msg">No hay asignaciones activas.</div>';
+                }
+
+            } catch (error) {
+                console.error("Error al inicializar gráficos:", error);
             }
         });
     </script>

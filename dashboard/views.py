@@ -1,10 +1,8 @@
-import json
 from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
-from django.db.models import Case, When, Value, IntegerField, Count, Q
+from django.db.models import Case, When, Value, IntegerField, Count
 from django.utils import timezone
 from datetime import timedelta
-from django.core.serializers.json import DjangoJSONEncoder # Para serializar fechas si fuera necesario
 
 # Importamos modelos necesarios de otras apps
 from gestion_ordenes.models import OrdenServicio, BitacoraOrden
@@ -134,9 +132,10 @@ def dashboard_tecnico(request):
 @login_required
 def dashboard_gerente(request):
     """
-    UI-DASH-03: Dashboard Gerencial con datos serializados para Chart.js.
+    UI-DASH-03: Dashboard Gerencial.
+    Se envían listas de Python puras para ser serializadas seguramente en el template.
     """
-    # 1. Consultas Base (Excluyendo cerradas para la carga actual)
+    # 1. Consultas Base (Activas)
     qs_activas = OrdenServicio.objects.exclude(
         estado__in=[OrdenServicio.ESTADO_ENTREGADA, OrdenServicio.ESTADO_CANCELADA]
     )
@@ -145,38 +144,34 @@ def dashboard_gerente(request):
     total_historico = OrdenServicio.objects.count()
     total_activas = qs_activas.count()
     
-    # Alertas: Alta prioridad + >3 días
     fecha_limite = timezone.now() - timedelta(days=3)
     alertas_qs = qs_activas.filter(
         prioridad=OrdenServicio.PRIORIDAD_ALTA,
         fecha_creacion__lte=fecha_limite
-    ).select_related('cliente', 'tecnico_asignado')[:10] # Limitamos a 10 para no saturar
+    ).select_related('cliente', 'tecnico_asignado')[:10]
     
     total_sin_asignar = qs_activas.filter(tecnico_asignado__isnull=True).count()
 
-    # 3. PROCESAMIENTO DE DATOS PARA GRÁFICOS (SERIALIZACIÓN JSON)
+    # 3. PREPARACIÓN DE DATOS (Listas Python Puras)
     
     # A) Gráfico de Estados
     raw_estados = qs_activas.values('estado').annotate(count=Count('id')).order_by('-count')
-    
-    estados_labels = [item['estado'] for item in raw_estados]
-    estados_data = [item['count'] for item in raw_estados]
+    chart_estado_labels = [item['estado'] for item in raw_estados]
+    chart_estado_data = [item['count'] for item in raw_estados]
 
-    # B) Gráfico de Carga de Técnicos
-    # Excluimos los 'Sin asignar' para este gráfico
+    # B) Gráfico de Técnicos
     raw_tecnicos = qs_activas.exclude(tecnico_asignado__isnull=True).values(
         'tecnico_asignado__first_name', 
         'tecnico_asignado__username'
     ).annotate(count=Count('id')).order_by('-count')
     
-    tecnicos_labels = []
+    chart_tecnico_labels = []
     for item in raw_tecnicos:
-        nombre = item['tecnico_asignado__first_name']
-        if not nombre:
-            nombre = item['tecnico_asignado__username']
-        tecnicos_labels.append(nombre)
+        # Usar nombre real si existe, sino el usuario
+        nombre = item['tecnico_asignado__first_name'] or item['tecnico_asignado__username']
+        chart_tecnico_labels.append(nombre)
         
-    tecnicos_data = [item['count'] for item in raw_tecnicos]
+    chart_tecnico_data = [item['count'] for item in raw_tecnicos]
 
     context = {
         'kpi_total': total_historico,
@@ -185,11 +180,10 @@ def dashboard_gerente(request):
         'kpi_sin_asignar': total_sin_asignar,
         'alertas_retraso': alertas_qs,
         
-        # DATOS JSON SEGUROS (Strings listos para JS)
-        # Usamos json.dumps para asegurar comillas dobles y escape de caracteres
-        'json_estados_labels': json.dumps(estados_labels, cls=DjangoJSONEncoder),
-        'json_estados_data': json.dumps(estados_data, cls=DjangoJSONEncoder),
-        'json_tecnicos_labels': json.dumps(tecnicos_labels, cls=DjangoJSONEncoder),
-        'json_tecnicos_data': json.dumps(tecnicos_data, cls=DjangoJSONEncoder),
+        # Enviamos las listas directamente
+        'chart_estado_labels': chart_estado_labels,
+        'chart_estado_data': chart_estado_data,
+        'chart_tecnico_labels': chart_tecnico_labels,
+        'chart_tecnico_data': chart_tecnico_data,
     }
     return render(request, 'dashboard/dash_gerente.html', context)
