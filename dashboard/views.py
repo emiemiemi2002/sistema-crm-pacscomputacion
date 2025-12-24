@@ -1,8 +1,10 @@
+import json
 from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
 from django.db.models import Case, When, Value, IntegerField, Count, Q
 from django.utils import timezone
 from datetime import timedelta
+from django.core.serializers.json import DjangoJSONEncoder # Para serializar fechas si fuera necesario
 
 # Importamos modelos necesarios de otras apps
 from gestion_ordenes.models import OrdenServicio, BitacoraOrden
@@ -132,47 +134,62 @@ def dashboard_tecnico(request):
 @login_required
 def dashboard_gerente(request):
     """
-    UI-DASH-03: Visión estratégica global.
-    Enfoque: Gráficos y supervisión de alto nivel.
+    UI-DASH-03: Dashboard Gerencial con datos serializados para Chart.js.
     """
-    # 1. KPIs Globales
-    total_ordenes_historico = OrdenServicio.objects.count()
-    ordenes_activas = OrdenServicio.objects.exclude(
+    # 1. Consultas Base (Excluyendo cerradas para la carga actual)
+    qs_activas = OrdenServicio.objects.exclude(
         estado__in=[OrdenServicio.ESTADO_ENTREGADA, OrdenServicio.ESTADO_CANCELADA]
-    ).count()
-    
-    # 2. Datos para Gráficos (Agregación)
-    
-    # Gráfico 1: Distribución por Estado (Solo órdenes activas para que sea relevante)
-    # Retorna: <QuerySet [{'estado': 'En reparación', 'total': 5}, ...]>
-    ordenes_por_estado = OrdenServicio.objects.exclude(
-        estado__in=[OrdenServicio.ESTADO_ENTREGADA, OrdenServicio.ESTADO_CANCELADA]
-    ).values('estado').annotate(total=Count('estado')).order_by('-total')
+    )
 
-    # Gráfico 2: Carga de Trabajo por Técnico (Cuántas tienen asignadas actualmente)
-    carga_tecnicos = OrdenServicio.objects.exclude(
-        estado__in=[OrdenServicio.ESTADO_ENTREGADA, OrdenServicio.ESTADO_CANCELADA, OrdenServicio.ESTADO_FINALIZADA_TECNICO]
-    ).values(
-        'tecnico_asignado__first_name', 'tecnico_asignado__username' # Usamos nombre real o username
-    ).annotate(
-        total=Count('id')
-    ).order_by('-total')
-
-    # 3. Alertas de Supervisión
-    # Ejemplo: Órdenes de prioridad 'Alta' con más de 3 días de antigüedad que siguen abiertas
+    # 2. KPIs
+    total_historico = OrdenServicio.objects.count()
+    total_activas = qs_activas.count()
+    
+    # Alertas: Alta prioridad + >3 días
     fecha_limite = timezone.now() - timedelta(days=3)
-    alertas_retraso = OrdenServicio.objects.filter(
+    alertas_qs = qs_activas.filter(
         prioridad=OrdenServicio.PRIORIDAD_ALTA,
         fecha_creacion__lte=fecha_limite
-    ).exclude(
-        estado__in=[OrdenServicio.ESTADO_ENTREGADA, OrdenServicio.ESTADO_CANCELADA, OrdenServicio.ESTADO_FINALIZADA_TECNICO]
-    ).select_related('tecnico_asignado')
+    ).select_related('cliente', 'tecnico_asignado')[:10] # Limitamos a 10 para no saturar
+    
+    total_sin_asignar = qs_activas.filter(tecnico_asignado__isnull=True).count()
+
+    # 3. PROCESAMIENTO DE DATOS PARA GRÁFICOS (SERIALIZACIÓN JSON)
+    
+    # A) Gráfico de Estados
+    raw_estados = qs_activas.values('estado').annotate(count=Count('id')).order_by('-count')
+    
+    estados_labels = [item['estado'] for item in raw_estados]
+    estados_data = [item['count'] for item in raw_estados]
+
+    # B) Gráfico de Carga de Técnicos
+    # Excluimos los 'Sin asignar' para este gráfico
+    raw_tecnicos = qs_activas.exclude(tecnico_asignado__isnull=True).values(
+        'tecnico_asignado__first_name', 
+        'tecnico_asignado__username'
+    ).annotate(count=Count('id')).order_by('-count')
+    
+    tecnicos_labels = []
+    for item in raw_tecnicos:
+        nombre = item['tecnico_asignado__first_name']
+        if not nombre:
+            nombre = item['tecnico_asignado__username']
+        tecnicos_labels.append(nombre)
+        
+    tecnicos_data = [item['count'] for item in raw_tecnicos]
 
     context = {
-        'kpi_total': total_ordenes_historico,
-        'kpi_activas': ordenes_activas,
-        'data_estados': ordenes_por_estado,
-        'data_tecnicos': carga_tecnicos,
-        'alertas_retraso': alertas_retraso,
+        'kpi_total': total_historico,
+        'kpi_activas': total_activas,
+        'kpi_retraso': alertas_qs.count(),
+        'kpi_sin_asignar': total_sin_asignar,
+        'alertas_retraso': alertas_qs,
+        
+        # DATOS JSON SEGUROS (Strings listos para JS)
+        # Usamos json.dumps para asegurar comillas dobles y escape de caracteres
+        'json_estados_labels': json.dumps(estados_labels, cls=DjangoJSONEncoder),
+        'json_estados_data': json.dumps(estados_data, cls=DjangoJSONEncoder),
+        'json_tecnicos_labels': json.dumps(tecnicos_labels, cls=DjangoJSONEncoder),
+        'json_tecnicos_data': json.dumps(tecnicos_data, cls=DjangoJSONEncoder),
     }
     return render(request, 'dashboard/dash_gerente.html', context)
