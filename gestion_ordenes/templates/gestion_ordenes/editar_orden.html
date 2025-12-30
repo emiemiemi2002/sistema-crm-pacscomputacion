@@ -73,6 +73,15 @@
 
     /* Sección de Cierre */
     .closure-select { font-size: 1.1rem; border: 2px solid var(--color-primario); padding: 0.8rem; }
+
+    /* ESTILO NUEVO: Grupo de Password */
+    .password-wrapper { position: relative; }
+    .password-wrapper input { padding-right: 40px; }
+    .toggle-password {
+        position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+        background: none; border: none; cursor: pointer; color: #999;
+    }
+    .toggle-password:hover { color: var(--color-primario); }
 </style>
 {% endblock %}
 
@@ -154,10 +163,15 @@
                             {% endif %}
                         </div>
 
-                        <!-- Contraseña (Siempre abierta) -->
+                        <!-- MEJORA: Contraseña (Siempre abierta pero segura) -->
                         <div class="form-group">
                             <label for="contrasena">Contraseña / PIN del Equipo</label>
-                            <input type="text" name="contrasena_equipo" id="contrasena" value="{{ orden.contrasena_equipo|default:'' }}">
+                            <div class="password-wrapper">
+                                <input type="password" name="contrasena_equipo" id="contrasena" value="{{ orden.contrasena_equipo|default:'' }}" autocomplete="new-password">
+                                <button type="button" class="toggle-password" onclick="togglePasswordVisibility('contrasena')" title="Mostrar/Ocultar">
+                                    <svg style="width:20px;height:20px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+                                </button>
+                            </div>
                         </div>
 
                         <button type="submit" class="btn-update">Guardar Cambios</button>
@@ -216,4 +230,15 @@
 
     </div>
 
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // MEJORA: Función para mostrar/ocultar contraseña
+    function togglePasswordVisibility(inputId) {
+        const input = document.getElementById(inputId);
+        const type = input.getAttribute('type') === 'password' ? 'text' : 'password';
+        input.setAttribute('type', type);
+    }
+</script>
 {% endblock %}

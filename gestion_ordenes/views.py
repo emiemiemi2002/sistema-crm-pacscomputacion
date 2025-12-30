@@ -66,16 +66,28 @@ def crear_orden(request):
         cliente_id = request.POST.get('cliente_id')
         equipo_id = request.POST.get('equipo_id')
         descripcion = request.POST.get('descripcion_falla')
-        contrasena = request.POST.get('contrasena_equipo')
+        contrasena_raw = request.POST.get('contrasena_equipo') # Contraseña en texto plano
         prioridad = request.POST.get('prioridad')
         tecnico_id = request.POST.get('tecnico_asignado')
 
         if cliente_id and equipo_id and descripcion:
             cliente = get_object_or_404(Cliente, pk=cliente_id)
             equipo = get_object_or_404(Equipo, pk=equipo_id)
+            
+            # 1. Actualizar contraseña en el Equipo (Encriptada)
+            # Esto mantiene el registro maestro del equipo actualizado y seguro
+            if contrasena_raw:
+                equipo.set_password(contrasena_raw)
+                equipo.save()
+            
+            # 2. Crear Orden
+            # Guardamos el HASH cifrado en la orden para mantener historial seguro
+            pass_cifrada = equipo.contrasena_equipo 
+
             nueva_orden = OrdenServicio(
                 cliente=cliente, equipo=equipo, descripcion_falla=descripcion, 
-                contrasena_equipo=contrasena, prioridad=prioridad, 
+                contrasena_equipo=pass_cifrada, # Se guarda el hash
+                prioridad=prioridad, 
                 asistente_receptor=request.user, estado=OrdenServicio.ESTADO_NUEVA
             )
             if tecnico_id:
@@ -86,26 +98,26 @@ def crear_orden(request):
 
     tecnicos_list = User.objects.filter(groups__name='Técnico')
     context = {
-        'tecnicos_list': tecnicos_list, 
-        'prioridades': OrdenServicio.PRIORIDAD_OPCIONES,
+        'tecnicos_list': tecnicos_list, 'prioridades': OrdenServicio.PRIORIDAD_OPCIONES, 
         'cliente_pre': None, 'equipos_pre': []
     }
+    if request.GET.get('cliente_id'):
+        context['cliente_pre'] = get_object_or_404(Cliente, pk=request.GET.get('cliente_id'))
+        context['equipos_pre'] = context['cliente_pre'].equipos.all()
     return render(request, 'gestion_ordenes/crear_orden.html', context)
 
 @login_required
 @permission_required('gestion_ordenes.change_ordenservicio', raise_exception=True)
 def editar_orden(request, orden_id):
     """
-    Panel de Administración de Orden: Permite editar detalles operativos Y cerrar la orden.
+    Panel de Administración de Orden. Maneja encriptación al editar.
     """
     orden = get_object_or_404(OrdenServicio, pk=orden_id)
 
-    # 1. SI ESTÁ CERRADA: Modo Solo Lectura
     if orden.fecha_cierre:
         messages.error(request, "Esta orden ya se encuentra cerrada y no puede ser modificada.")
         return redirect('detalle_orden', orden_id=orden.id)
 
-    # 2. Determinar permisos de edición
     es_finalizada = orden.estado == OrdenServicio.ESTADO_FINALIZADA_TECNICO
     puede_editar_tecnico = not es_finalizada
     puede_editar_prioridad = not es_finalizada
@@ -113,15 +125,22 @@ def editar_orden(request, orden_id):
     if request.method == 'POST':
         accion = request.POST.get('accion')
 
-        # --- CASO A: GUARDAR DETALLES ---
         if accion == 'guardar_detalles':
             cambios = []
             
-            # Contraseña
-            nueva_pass = request.POST.get('contrasena_equipo')
-            if orden.contrasena_equipo != nueva_pass:
-                orden.contrasena_equipo = nueva_pass
-                cambios.append("Contraseña actualizada")
+            # LÓGICA DE ENCRIPTACIÓN AL EDITAR
+            nueva_pass_raw = request.POST.get('contrasena_equipo')
+            
+            # Obtenemos la contraseña actual desencriptada para comparar
+            pass_actual_plana = orden.equipo.get_password()
+            
+            if nueva_pass_raw and nueva_pass_raw != pass_actual_plana:
+                # Actualizamos Equipo (Genera nuevo hash)
+                orden.equipo.set_password(nueva_pass_raw)
+                orden.equipo.save()
+                # Actualizamos el hash en la orden
+                orden.contrasena_equipo = orden.equipo.contrasena_equipo
+                cambios.append("Contraseña actualizada (Cifrada)")
 
             # Prioridad
             if puede_editar_prioridad:
@@ -138,10 +157,9 @@ def editar_orden(request, orden_id):
                     if orden.tecnico_asignado != nuevo_tec:
                         orden.tecnico_asignado = nuevo_tec
                         cambios.append(f"Técnico: {nuevo_tec.username}")
-                else:
-                    if orden.tecnico_asignado:
-                        orden.tecnico_asignado = None
-                        cambios.append("Técnico desasignado")
+                elif orden.tecnico_asignado:
+                    orden.tecnico_asignado = None
+                    cambios.append("Técnico desasignado")
 
             if cambios:
                 orden.save()
@@ -153,10 +171,8 @@ def editar_orden(request, orden_id):
             else:
                 messages.info(request, "No se detectaron cambios en los detalles.")
             
-            # REDIRECCIÓN A LISTA
             return redirect('lista_ordenes')
 
-        # --- CASO B: CERRAR ORDEN ---
         elif accion == 'cerrar_orden':
             user_groups = request.user.groups.values_list('name', flat=True)
             if not ('Gerente Servicio' in user_groups or 'Asistente Recepción' in user_groups or request.user.is_superuser):
@@ -164,11 +180,10 @@ def editar_orden(request, orden_id):
                 return redirect('editar_orden', orden_id=orden.id)
 
             nuevo_estado = request.POST.get('estado_cierre')
-            
             if nuevo_estado == OrdenServicio.ESTADO_ENTREGADA and not es_finalizada:
-                messages.error(request, "Error: No se puede entregar. El técnico aún no finaliza el servicio.")
+                messages.error(request, "No se puede entregar. El técnico no ha finalizado.")
             elif nuevo_estado == OrdenServicio.ESTADO_CANCELADA and es_finalizada:
-                messages.error(request, "Error: No se puede cancelar. El servicio ya fue realizado.")
+                messages.error(request, "No se puede cancelar. El servicio ya fue realizado.")
             elif nuevo_estado in [OrdenServicio.ESTADO_ENTREGADA, OrdenServicio.ESTADO_CANCELADA]:
                 with transaction.atomic():
                     orden.estado = nuevo_estado
@@ -179,31 +194,24 @@ def editar_orden(request, orden_id):
                         descripcion=f"*** ORDEN CERRADA - ESTADO: {nuevo_estado.upper()} ***"
                     )
                 messages.success(request, f"Orden #{orden.id} cerrada exitosamente ({nuevo_estado}).")
-                # REDIRECCIÓN A LISTA (SOLICITUD CUMPLIDA)
                 return redirect('lista_ordenes')
-            else:
-                messages.error(request, "Estado de cierre no válido.")
 
-    # --- PREPARACIÓN DEL CONTEXTO ---
+    # PREPARACIÓN DE CONTEXTO (GET)
+    # TRUCO VISUAL: Sobreescribimos el campo en memoria con la contraseña desencriptada
+    # para que el formulario la muestre legible al usuario, sin guardar esto en BD.
+    if orden.contrasena_equipo:
+         # Intentamos desencriptar usando el método del equipo asociado
+         orden.contrasena_equipo = orden.equipo.get_password()
+
     tecnicos_list = User.objects.filter(groups__name='Técnico')
     prioridades = OrdenServicio.PRIORIDAD_OPCIONES
-    
-    estados_cierre = []
-    if es_finalizada:
-        estados_cierre = [(OrdenServicio.ESTADO_ENTREGADA, 'Entregada al Cliente')]
-    else:
-        estados_cierre = [(OrdenServicio.ESTADO_CANCELADA, 'Cancelada')]
+    estados_cierre = [(OrdenServicio.ESTADO_ENTREGADA, 'Entregada al Cliente')] if es_finalizada else [(OrdenServicio.ESTADO_CANCELADA, 'Cancelada')]
 
-    context = {
-        'orden': orden,
-        'tecnicos_list': tecnicos_list,
-        'prioridades': prioridades,
-        'estados_cierre': estados_cierre,
-        'puede_editar_tecnico': puede_editar_tecnico,
-        'puede_editar_prioridad': puede_editar_prioridad,
-        'es_finalizada': es_finalizada,
-    }
-    return render(request, 'gestion_ordenes/editar_orden.html', context)
+    return render(request, 'gestion_ordenes/editar_orden.html', {
+        'orden': orden, 'tecnicos_list': tecnicos_list, 'prioridades': prioridades,
+        'estados_cierre': estados_cierre, 'puede_editar_tecnico': puede_editar_tecnico,
+        'puede_editar_prioridad': puede_editar_prioridad, 'es_finalizada': es_finalizada
+    })
 
 @login_required
 @permission_required('gestion_ordenes.delete_ordenservicio', raise_exception=True)

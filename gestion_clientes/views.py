@@ -96,6 +96,8 @@ def crear_equipo(request):
         marca = request.POST.get('marca')
         modelo = request.POST.get('modelo')
         serie = request.POST.get('serie')
+        # Capturamos la contraseña (si se envía en el form)
+        raw_password = request.POST.get('contrasena_equipo')
 
         if cliente_id and tipo_equipo and marca and modelo:
             cliente = get_object_or_404(Cliente, pk=cliente_id)
@@ -106,13 +108,17 @@ def crear_equipo(request):
                 modelo=modelo,
                 numero_serie=serie
             )
+            
+            # ENCRIPTACIÓN: Usamos el método del modelo antes de guardar
+            if raw_password:
+                nuevo_equipo.set_password(raw_password)
+            
             nuevo_equipo.save()
             messages.success(request, f'Equipo {marca} {modelo} registrado correctamente.')
 
             # Redirección inteligente
             next_url = request.GET.get('next')
             if next_url == 'crear_orden':
-                # Volver a la creación de orden manteniendo el cliente seleccionado
                 return redirect(f'/ordenes/crear/?cliente_id={cliente.id}')
             
             return redirect('detalle_cliente', id=cliente.id)
@@ -149,6 +155,7 @@ def crear_cliente(request):
         values = request.POST
 
         if nombre and telefono:
+            # Validación simple de teléfono único (aunque el modelo lo tiene, es mejor UX avisar aquí)
             if Cliente.objects.filter(telefono=telefono).exists():
                 messages.error(request, 'Ya existe un cliente con ese número de teléfono.')
                 return render(request, 'gestion_clientes/cliente_form.html', {'values': values})
@@ -196,7 +203,6 @@ def editar_cliente(request, id):
 def eliminar_cliente(request, id):
     """
     Vista para eliminar un cliente. Requiere permiso de Gerente.
-    Maneja ProtectedError si el cliente tiene órdenes asociadas.
     """
     cliente = get_object_or_404(Cliente, pk=id)
 
@@ -207,8 +213,7 @@ def eliminar_cliente(request, id):
             messages.success(request, f'Cliente "{nombre}" eliminado correctamente.')
             return redirect('lista_clientes')
         except ProtectedError:
-            # Capturamos el error de integridad referencial (on_delete=PROTECT en OrdenServicio)
-            messages.error(request, f'No se puede eliminar a "{cliente.nombre_completo}" porque tiene historial de Órdenes de Servicio o Equipos activos. El sistema protege estos datos.')
+            messages.error(request, f'No se puede eliminar a "{cliente.nombre_completo}" porque tiene historial de Órdenes de Servicio o Equipos activos.')
             return redirect('detalle_cliente', id=cliente.id)
 
     return render(request, 'gestion_clientes/cliente_confirm_delete.html', {'cliente': cliente})

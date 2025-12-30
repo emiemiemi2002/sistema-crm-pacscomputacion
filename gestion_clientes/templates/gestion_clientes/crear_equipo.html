@@ -41,6 +41,15 @@
         font-weight: 600;
         cursor: not-allowed;
     }
+
+    /* ESTILO NUEVO: Grupo de Password */
+    .password-wrapper { position: relative; }
+    .password-wrapper input { padding-right: 40px; } /* Espacio para el icono */
+    .toggle-password {
+        position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+        background: none; border: none; cursor: pointer; color: #999;
+    }
+    .toggle-password:hover { color: var(--color-primario); }
 </style>
 {% endblock %}
 
@@ -103,6 +112,18 @@
                 </div>
             </div>
 
+            <!-- MEJORA: Campo de Contraseña -->
+            <div class="form-group">
+                <label for="contrasena">Contraseña del Equipo / PIN (Opcional)</label>
+                <div class="password-wrapper">
+                    <input type="password" name="contrasena_equipo" id="contrasena" placeholder="Patrón de desbloqueo, PIN o contraseña de usuario" autocomplete="new-password">
+                    <button type="button" class="toggle-password" onclick="togglePasswordVisibility('contrasena')" title="Mostrar/Ocultar">
+                        <svg style="width:20px;height:20px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+                    </button>
+                </div>
+                <small style="color: #666; font-size: 0.85rem; margin-top: 0.25rem;">Se guardará de forma segura (encriptada). Solo los técnicos podrán verla.</small>
+            </div>
+
             <div class="form-actions">
                 <a href="{% if cliente_pre %}{% url 'detalle_cliente' cliente_pre.id %}{% else %}{% url 'lista_clientes' %}{% endif %}" class="btn btn-secondary" style="text-decoration: none; border: 1px solid #ccc; color: #333;">Cancelar</a>
                 <button type="submit" class="btn btn-primary">Guardar Equipo</button>
@@ -110,4 +131,15 @@
         </form>
     </div>
 
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // MEJORA: Función para mostrar/ocultar contraseña
+    function togglePasswordVisibility(inputId) {
+        const input = document.getElementById(inputId);
+        const type = input.getAttribute('type') === 'password' ? 'text' : 'password';
+        input.setAttribute('type', type);
+    }
+</script>
 {% endblock %}
