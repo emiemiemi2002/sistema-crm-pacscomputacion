@@ -70,7 +70,19 @@
         <form method="POST" id="cotizacion-form">
             {% csrf_token %}
             
-            <!-- Concepto -->
+            <!-- Clasificación -->
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="id_tipo_cotizacion" class="required">Tipo de Cotización</label>
+                    {{ form.tipo_cotizacion }}
+                </div>
+                <div class="form-group">
+                    <label for="id_estado">Estado Actual</label>
+                    {{ form.estado }}
+                </div>
+            </div>
+
+            <!-- Concepto Principal -->
             <div class="form-group">
                 <label for="id_concepto" class="required">Concepto / Descripción del Trabajo</label>
                 {{ form.concepto }}
@@ -79,7 +91,7 @@
                 {% endif %}
             </div>
 
-            <!-- Proveedores y Origen (Lógica Dinámica) -->
+            <!-- Proveedores y Origen -->
             <div class="form-row">
                 <div class="form-group">
                     <label for="id_fuente_refaccion" class="required">Origen de Refacción</label>
@@ -115,10 +127,10 @@
                 </div>
             </div>
 
-            <!-- Estado -->
+            <!-- MEJORA: Campo Notas -->
             <div class="form-group">
-                <label for="id_estado">Estado de la Cotización</label>
-                {{ form.estado }}
+                <label for="id_notas">Notas / Observaciones (Opcional)</label>
+                {{ form.notas }}
             </div>
 
             <!-- Calculadora -->
@@ -137,16 +149,14 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            // Referencias a elementos del DOM
             const inputRef = document.getElementById('id_costo_refacciones');
             const inputMO = document.getElementById('id_costo_mano_obra');
             const display = document.getElementById('total-display');
-            
             const selectFuente = document.getElementById('id_fuente_refaccion');
             const selectProveedor = document.getElementById('id_proveedor');
             const labelProveedor = document.getElementById('label_proveedor');
 
-            // --- Lógica de Costos (Suma en tiempo real) ---
+            // --- Lógica de Costos ---
             function calcularTotal() {
                 const ref = parseFloat(inputRef.value) || 0;
                 const mo = parseFloat(inputMO.value) || 0;
@@ -154,22 +164,17 @@
                 display.textContent = '$' + total.toFixed(2);
             }
 
-            // Escuchar cambios en los inputs numéricos
             inputRef.addEventListener('input', calcularTotal);
             inputMO.addEventListener('input', calcularTotal);
 
-            // --- Lógica de Proveedor (Dinámica) ---
+            // --- Lógica de Proveedor ---
             function toggleProveedor() {
                 const fuente = selectFuente.value;
-                // CORRECCIÓN: Coincidencia exacta con la base de datos (minúscula 'p' en proveedor)
                 if (fuente === 'Pedido a proveedor') {
-                    // Si es externo: Habilitar y marcar como requerido
                     selectProveedor.disabled = false;
-                    // Forzamos el estilo visual de habilitado
                     selectProveedor.style.backgroundColor = '#fff';
                     labelProveedor.classList.add('required');
                 } else {
-                    // Si es interno o vacío: Deshabilitar, limpiar y quitar requerido
                     selectProveedor.disabled = true;
                     selectProveedor.value = ''; 
                     selectProveedor.style.backgroundColor = '#f0f0f0';
@@ -177,11 +182,9 @@
                 }
             }
 
-            // Escuchar cambios en el select de fuente
             selectFuente.addEventListener('change', toggleProveedor);
             
-            // --- Inicialización ---
-            // Ejecutar al cargar para manejar estados de edición o errores de validación previos
+            // Inicializar
             calcularTotal();
             toggleProveedor();
         });

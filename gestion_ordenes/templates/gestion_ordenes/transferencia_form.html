@@ -61,7 +61,6 @@
         margin-bottom: 2rem; display: flex; justify-content: space-between; align-items: center; color: #856404; 
     }
 
-    /* Ocultar fila plantilla */
     #empty-row-template { display: none; }
 </style>
 {% endblock %}
@@ -73,7 +72,6 @@
         <div class="subtitle">Orden de Servicio #{{ orden.pk }} - {{ orden.equipo.tipo_equipo }} {{ orden.equipo.marca }}</div>
     </div>
 
-    <!-- Mensajes de error globales -->
     {% if messages %}
         <div style="max-width: 950px; margin: 0 auto 1rem auto;">
         {% for message in messages %}
@@ -90,7 +88,7 @@
         <form method="POST" id="transferencia-form">
             {% csrf_token %}
             
-            <!-- Bloque de Autorización (Solo Gerentes en Edición) -->
+            <!-- Bloque de Autorización -->
             {% if editar and perms.gestion_ordenes.change_transferencia %}
                 <div class="auth-box">
                     <div>
@@ -110,7 +108,7 @@
                 </div>
             {% endif %}
 
-            <!-- 1. Cabecera (Diseño Mejorado) -->
+            <!-- 1. Cabecera -->
             <div class="header-box">
                 <h3 style="margin-top:0; margin-bottom:1rem; font-size:1rem; color:#555; text-transform:uppercase; border-bottom:1px solid #ddd; padding-bottom:0.5rem;">Información General</h3>
                 <div class="form-grid-header">
@@ -125,7 +123,7 @@
                 </div>
             </div>
 
-            <!-- 2. Ítems (Tabla Estética) -->
+            <!-- 2. Ítems -->
             <div style="margin-bottom: 0.5rem; display:flex; justify-content:space-between; align-items:flex-end;">
                 <h3 style="font-size:1.1rem; color:var(--color-primario); margin:0;">Ítems a Solicitar</h3>
                 <small style="color: #666;">Asegúrate de llenar la descripción y cantidad</small>
@@ -137,14 +135,15 @@
                 <table class="items-table" id="items-table">
                     <thead>
                         <tr>
-                            <th style="width: 45%;">Descripción del Ítem *</th>
-                            <th style="width: 15%;">Cantidad *</th>
-                            <th style="width: 30%;">No. Serie</th>
+                            <th style="width: 35%;">Descripción del Ítem *</th>
+                            <!-- Columna Modelo Añadida -->
+                            <th style="width: 20%;">Modelo</th>
+                            <th style="width: 10%;">Cant. *</th>
+                            <th style="width: 25%;">No. Serie</th>
                             <th style="width: 10%; text-align:center;">Borrar</th>
                         </tr>
                     </thead>
                     <tbody>
-                        <!-- Filas existentes (o 1 vacía si es crear, gracias a views.py) -->
                         {% for form_item in formset %}
                             <tr class="item-row">
                                 {% for hidden in form_item.hidden_fields %}
@@ -157,6 +156,8 @@
                                         <div style="color:red; font-size:0.8rem; margin-top:2px;">{{ form_item.descripcion_item.errors.0 }}</div>
                                     {% endif %}
                                 </td>
+                                <!-- Campo Modelo -->
+                                <td>{{ form_item.modelo }}</td>
                                 <td>{{ form_item.cantidad }}</td>
                                 <td>{{ form_item.numero_serie }}</td>
                                 <td style="text-align: center;">
@@ -179,13 +180,12 @@
         </form>
     </div>
 
-    <!-- 
-      CORRECCIÓN CRÍTICA: La tabla plantilla se mueve FUERA del <form>.
-      Esto evita que el navegador intente validar los campos required ocultos al enviar.
-    -->
+    <!-- Tabla Plantilla JS (Actualizada con Modelo) -->
     <table style="display: none;">
         <tr id="empty-row-template" class="item-row">
             <td><input type="text" name="items-__prefix__-descripcion_item" class="form-control" required id="id_items-__prefix__-descripcion_item"></td>
+            <!-- Campo Modelo en Plantilla -->
+            <td><input type="text" name="items-__prefix__-modelo" class="form-control" id="id_items-__prefix__-modelo"></td>
             <td><input type="number" name="items-__prefix__-cantidad" class="form-control" value="1" min="1" required id="id_items-__prefix__-cantidad" style="width: 80px;"></td>
             <td><input type="text" name="items-__prefix__-numero_serie" class="form-control" id="id_items-__prefix__-numero_serie"></td>
             <td style="text-align: center;"><input type="checkbox" name="items-__prefix__-DELETE" id="id_items-__prefix__-DELETE"></td>
@@ -201,14 +201,9 @@
 
             addBtn.addEventListener('click', function() {
                 let formCount = parseInt(totalForms.value);
-                
-                // Clonar la fila template
                 const newRow = templateRow.cloneNode(true);
-                newRow.removeAttribute('id'); // Quitar ID de template
-                
-                // Reemplazar __prefix__ por el índice actual
+                newRow.removeAttribute('id');
                 newRow.innerHTML = newRow.innerHTML.replace(/__prefix__/g, formCount);
-                
                 tableBody.appendChild(newRow);
                 totalForms.value = formCount + 1;
             });
