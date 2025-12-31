@@ -13,7 +13,7 @@
         border-radius: 12px; 
         padding: 2.5rem; 
         max-width: 800px; 
-        margin: 0 auto; /* Centrado */
+        margin: 0 auto; 
         box-shadow: 0 4px 12px rgba(0,0,0,0.04);
     }
 
@@ -44,7 +44,7 @@
 
     /* ESTILO NUEVO: Grupo de Password */
     .password-wrapper { position: relative; }
-    .password-wrapper input { padding-right: 40px; } /* Espacio para el icono */
+    .password-wrapper input { padding-right: 40px; } 
     .toggle-password {
         position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
         background: none; border: none; cursor: pointer; color: #999;
@@ -62,6 +62,9 @@
     <div class="form-card">
         <form method="POST">
             {% csrf_token %}
+            
+            <!-- MEJORA: Campo oculto para manejar el retorno (next) -->
+            <input type="hidden" name="next" value="{{ next_url }}">
             
             <!-- Selección de Cliente -->
             <div class="form-group">
@@ -125,7 +128,15 @@
             </div>
 
             <div class="form-actions">
-                <a href="{% if cliente_pre %}{% url 'detalle_cliente' cliente_pre.id %}{% else %}{% url 'lista_clientes' %}{% endif %}" class="btn btn-secondary" style="text-decoration: none; border: 1px solid #ccc; color: #333;">Cancelar</a>
+                <!-- Lógica inteligente para el botón Cancelar -->
+                {% if next_url == 'crear_orden' and cliente_pre %}
+                    <a href="{% url 'crear_orden' %}?cliente_id={{ cliente_pre.id }}" class="btn btn-secondary" style="text-decoration: none; border: 1px solid #ccc; color: #333;">Cancelar</a>
+                {% elif next_url == 'detalle_cliente' and cliente_pre %}
+                    <a href="{% url 'detalle_cliente' cliente_pre.id %}" class="btn btn-secondary" style="text-decoration: none; border: 1px solid #ccc; color: #333;">Cancelar</a>
+                {% else %}
+                    <a href="{% url 'lista_clientes' %}" class="btn btn-secondary" style="text-decoration: none; border: 1px solid #ccc; color: #333;">Cancelar</a>
+                {% endif %}
+
                 <button type="submit" class="btn btn-primary">Guardar Equipo</button>
             </div>
         </form>
@@ -135,7 +146,6 @@
 
 {% block extra_js %}
 <script>
-    // MEJORA: Función para mostrar/ocultar contraseña
     function togglePasswordVisibility(inputId) {
         const input = document.getElementById(inputId);
         const type = input.getAttribute('type') === 'password' ? 'text' : 'password';

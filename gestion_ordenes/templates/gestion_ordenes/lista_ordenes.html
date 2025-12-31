@@ -48,18 +48,6 @@
     .pag-btn { padding: 0.5rem 1rem; border: 1px solid var(--color-borde); background: white; border-radius: 6px; text-decoration: none; color: var(--color-texto-principal); font-size: 0.9rem; }
     .pag-btn:hover { background: var(--color-fondo); }
 
-    /* ESTILOS DE MENSAJES FLOTANTES */
-    .alert-box {
-        padding: 1rem 1.5rem;
-        margin-bottom: 1.5rem;
-        border-radius: 8px;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        animation: fadeIn 0.5s ease-out;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-    }
-
     .alert-container { margin-bottom: 1rem; }
     .alert { padding: 1rem; margin-bottom: 0.5rem; border-radius: 8px; }
     .alert-success { background: #e8f5e9; color: #2e7d32; border: 1px solid #c8e6c9;}
@@ -85,22 +73,6 @@
             Nueva Orden
         </a>
     </div>
-
-    <!-- BLOQUE DE MENSAJES -->
-    {% if messages %}
-        <div id="messages-container">
-            {% for message in messages %}
-                <div class="alert-box alert-{{ message.tags }}">
-                    <div style="display:flex; align-items:center; gap:10px;">
-                        {% if message.tags == 'success' %}<i class="fas fa-check-circle"></i>{% endif %}
-                        {% if message.tags == 'error' %}<i class="fas fa-exclamation-circle"></i>{% endif %}
-                        <span>{{ message }}</span>
-                    </div>
-                    <button class="close-btn" onclick="this.parentElement.style.display='none'">&times;</button>
-                </div>
-            {% endfor %}
-        </div>
-    {% endif %}
 
     <!-- Filtros -->
     <div class="filters-section">

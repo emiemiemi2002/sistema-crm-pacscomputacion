@@ -77,7 +77,7 @@
                 <div id="search-results"></div>
                 
                 <small style="margin-top: 0.5rem; display: block; color: #777;">
-                    ¿Cliente nuevo? <a href="{% url 'crear_cliente' %}" target="_blank" style="color: var(--color-primario); font-weight: bold;">Regístralo aquí</a> y luego búscalo.
+                    ¿Cliente nuevo? <a href="{% url 'crear_cliente' %}" style="color: var(--color-primario); font-weight: bold;">Regístralo aquí</a> y luego búscalo.
                 </small>
             </div>
 
@@ -113,8 +113,9 @@
                     <!-- MEJORA 11: Enlace deshabilitado por defecto -->
                     <div style="margin-top: 0.5rem;">
                         <span style="font-size: 0.9rem; color: #555;">¿Equipo nuevo? </span>
-                        <a href="#" id="link-crear-equipo" class="link-disabled" target="_blank" style="color:var(--color-primario); font-weight: 500;">
-                            Registrar nuevo equipo (Abre en otra pestaña)
+                        <!-- CORRECCIÓN: Eliminado target="_blank" -->
+                        <a href="#" id="link-crear-equipo" class="link-disabled" style="color:var(--color-primario); font-weight: 500;">
+                            Registrar nuevo equipo aquí
                         </a>
                     </div>
                 </div>
@@ -192,6 +193,7 @@
         const displayTel = document.getElementById('display-telefono');
         const btnCambiar = document.getElementById('btn-cambiar-cliente');
         const linkCrearEquipo = document.getElementById('link-crear-equipo');
+        const passInput = document.getElementById('contrasena'); // Input de contraseña
 
         // --- 1. LÓGICA DE INICIALIZACIÓN (CORRECCIÓN IMPORTANTE) ---
         // Verificamos si ya hay un cliente pre-cargado desde el servidor
@@ -199,17 +201,57 @@
         if (clientePreId) {
             // Si hay cliente, habilitamos el enlace de crear equipo inmediatamente
             activarEnlaceEquipo(clientePreId);
+            // NUEVO: Auto-seleccionar equipo si viene en la URL (ej: ?cliente_id=1&equipo_creado=5)
+            const urlParams = new URLSearchParams(window.location.search);
+            const equipoCreadoId = urlParams.get('equipo_creado');
+            if (equipoCreadoId) {
+                // Pequeño timeout para asegurar que el DOM del select esté listo (aunque en render de servidor ya viene lleno)
+                setTimeout(() => {
+                    equipoSelect.value = equipoCreadoId;
+                    // Disparar evento change manualmente para cargar contraseña
+                    equipoSelect.dispatchEvent(new Event('change'));
+                    // Efecto visual para indicar selección
+                    equipoSelect.style.borderColor = '#2e7d32';
+                    equipoSelect.style.backgroundColor = '#e8f5e9';
+                    setTimeout(() => {
+                        equipoSelect.style.borderColor = '';
+                        equipoSelect.style.backgroundColor = '';
+                    }, 2000);
+                }, 100);
+            }
         } else {
             // Si no, aseguramos que el enlace esté bloqueado
             desactivarEnlaceEquipo();
         }
+
+        // --- NUEVA LÓGICA: CARGAR CONTRASEÑA AL SELECCIONAR EQUIPO ---
+        equipoSelect.addEventListener('change', function() {
+            const equipoId = this.value;
+            
+            if (equipoId) {
+                // Fetch a nuestra API interna
+                fetch(`/clientes/api/equipo/${equipoId}/password/`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (passInput) {
+                            passInput.value = data.password;
+                        }
+                    })
+                    .catch(err => console.error("Error al obtener password:", err));
+            } else {
+                // Si deselecciona, limpiar campo
+                if (passInput) passInput.value = '';
+            }
+        });
 
         // --- 2. MANEJO DEL ENLACE "CREAR EQUIPO" (MEJORA 11) ---
         function activarEnlaceEquipo(clienteId) {
             if (linkCrearEquipo) {
                 // Quitamos la clase disabled y el pointer-events
                 linkCrearEquipo.classList.remove('link-disabled');
-                linkCrearEquipo.style.pointerEvents = 'auto'; 
+                linkCrearEquipo.style.pointerEvents = 'auto';
+                // CORRECCIÓN: Eliminamos target="_blank" para flujo lineal
+                linkCrearEquipo.removeAttribute('target'); 
                 // Actualizamos el href dinámicamente
                 linkCrearEquipo.href = `{% url 'crear_equipo' %}?cliente_id=${clienteId}&next=crear_orden`;
             }
@@ -309,7 +351,9 @@
             
             // Resetear Equipos
             equipoSelect.innerHTML = '<option value="">-- Primero selecciona un cliente --</option>';
-            
+
+            passInput.value = ''; // Limpiar password también
+
             // DESACTIVAR ENLACE
             desactivarEnlaceEquipo();
         });

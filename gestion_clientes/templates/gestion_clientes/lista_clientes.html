@@ -61,10 +61,6 @@
     .pag-btn:hover { background: #f0f0f0; }
     .pag-info { color: var(--color-texto-secundario); font-size: 0.9rem; }
     
-    /* Mensajes Flash (Importante si se elimina desde aquí y hay error) */
-    .alert-container { margin-bottom: 1rem; }
-    .alert { padding: 1rem; margin-bottom: 0.5rem; border-radius: 8px; }
-    .alert-success { background: #e8f5e9; color: #2e7d32; border: 1px solid #c8e6c9;}
 </style>
 {% endblock %}
 
@@ -77,16 +73,6 @@
             Crear Nuevo Cliente
         </a>
     </div>
-
-    {% if messages %}
-    <div class="alert-container">
-        {% for message in messages %}
-            <div class="alert alert-{{ message.tags }}">
-                {{ message }}
-            </div>
-        {% endfor %}
-    </div>
-    {% endif %}
 
     <!-- Formulario de Búsqueda -->
     <form method="GET" class="filters-bar">

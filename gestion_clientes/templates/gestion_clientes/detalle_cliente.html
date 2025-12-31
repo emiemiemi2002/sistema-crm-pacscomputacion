@@ -11,13 +11,6 @@
     
     .header-actions { display: flex; gap: 1rem; align-items: center; }
     
-    /* Alertas */
-    .messages-container { margin-bottom: 2rem; }
-    .alert { padding: 1rem 1.5rem; margin-bottom: 1rem; border-radius: 8px; font-weight: 500; display: flex; align-items: center; justify-content: space-between; }
-    .alert-success { background-color: #e8f5e9; color: #2e7d32; border: 1px solid #c8e6c9; }
-    .alert-warning { background-color: #fff3e0; color: #ef6c00; border: 1px solid #ffe0b2; }
-    .alert-error { background-color: #ffebee; color: #c62828; border: 1px solid #ffcdd2; }
-
     /* Panel de Info */
     .client-info-panel {
         background-color: var(--color-fondo-card); border: 1px solid var(--color-borde);
@@ -68,22 +61,14 @@
     .btn-danger-outline { border: 1px solid #e57373; color: #d32f2f; background: white; padding: 0.5rem 1rem; border-radius: 6px; text-decoration: none; font-size: 0.9rem; transition: background 0.2s;}
     .btn-danger-outline:hover { background: #ffebee; }
 
+    /* Header de Pestaña con Botón */
+    .tab-action-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+    .tab-action-header h3 { font-size: 1.2rem; color: var(--color-primario); font-weight: 600; margin: 0; }
+
 </style>
 {% endblock %}
 
 {% block content %}
-
-    <!-- MENSAJES FLASH -->
-    {% if messages %}
-        <div class="messages-container">
-            {% for message in messages %}
-                <div class="alert alert-{{ message.tags }}">
-                    <span>{{ message }}</span>
-                    <button onclick="this.parentElement.style.display='none'" style="background:none; border:none; color:inherit; cursor:pointer; font-weight:bold;">&times;</button>
-                </div>
-            {% endfor %}
-        </div>
-    {% endif %}
 
     <!-- Encabezado -->
     <div class="main-content-header">
@@ -92,7 +77,6 @@
             <span class="subtitle">Registrado el: {{ cliente.fecha_registro|date:"d \d\e F \d\e Y" }}</span>
         </div>
         <div class="header-actions">
-            <!-- MEJORA: Botón Eliminar solo para Gerentes -->
             {% if perms.gestion_clientes.delete_cliente %}
             <a href="{% url 'eliminar_cliente' cliente.id %}" class="btn-danger-outline" title="Eliminar Cliente">
                 <svg style="width:18px;height:18px; vertical-align:text-bottom;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
@@ -105,7 +89,6 @@
                 Editar Cliente
             </a>
             
-            <!-- MEJORA: Botón Crear Orden con pre-llenado -->
             <a href="{% url 'crear_orden' %}?cliente_id={{ cliente.id }}" class="btn btn-action">
                 <svg style="width:18px;height:18px;margin-right:5px;vertical-align:text-bottom;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
                 Crear Orden
@@ -207,6 +190,16 @@
 
         <!-- Pestaña 2: Equipos -->
         <div id="equipos" class="tab-pane">
+            
+            <!-- MEJORA: Cabecera con botón de crear equipo -->
+            <div class="tab-action-header">
+                <h3>Inventario del Cliente</h3>
+                <a href="{% url 'crear_equipo' %}?cliente_id={{ cliente.id }}&next=detalle_cliente" class="btn btn-action" style="padding: 0.5rem 1rem; font-size: 0.9rem;">
+                    <svg style="width:16px;height:16px; margin-right:5px; vertical-align:text-bottom;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                    Registrar Nuevo Equipo
+                </a>
+            </div>
+
             <div class="table-card">
                 <div style="overflow-x:auto;">
                     <table class="data-table">

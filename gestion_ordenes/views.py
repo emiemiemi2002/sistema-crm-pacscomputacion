@@ -62,48 +62,82 @@ def lista_ordenes(request):
 
 @login_required
 def crear_orden(request):
+    cliente_pre = None
+    equipos_pre = []
+    
+    # Manejo de pre-selección por URL (GET)
+    if request.method == 'GET':
+        cliente_id = request.GET.get('cliente_id')
+        if cliente_id:
+            cliente_pre = get_object_or_404(Cliente, pk=cliente_id)
+            equipos_pre = cliente_pre.equipos.all()
+
     if request.method == 'POST':
         cliente_id = request.POST.get('cliente_id')
         equipo_id = request.POST.get('equipo_id')
-        descripcion = request.POST.get('descripcion_falla')
-        contrasena_raw = request.POST.get('contrasena_equipo') # Contraseña en texto plano
+        descripcion_falla = request.POST.get('descripcion_falla')
         prioridad = request.POST.get('prioridad')
         tecnico_id = request.POST.get('tecnico_asignado')
+        
+        # Obtenemos la contraseña y quitamos espacios (.strip())
+        # Si viene vacía, será ''
+        contrasena_equipo = request.POST.get('contrasena_equipo', '').strip()
 
-        if cliente_id and equipo_id and descripcion:
-            cliente = get_object_or_404(Cliente, pk=cliente_id)
-            equipo = get_object_or_404(Equipo, pk=equipo_id)
-            
-            # 1. Actualizar contraseña en el Equipo (Encriptada)
-            # Esto mantiene el registro maestro del equipo actualizado y seguro
-            if contrasena_raw:
-                equipo.set_password(contrasena_raw)
-                equipo.save()
-            
-            # 2. Crear Orden
-            # Guardamos el HASH cifrado en la orden para mantener historial seguro
-            pass_cifrada = equipo.contrasena_equipo 
+        if cliente_id and equipo_id and descripcion_falla:
+            try:
+                cliente = Cliente.objects.get(pk=cliente_id)
+                equipo = Equipo.objects.get(pk=equipo_id)
+                
+                # --- CORRECCIÓN LÓGICA DE CONTRASEÑA ---
+                # 1. Obtenemos la actual desencriptada (o cadena vacía si es None)
+                pass_actual = equipo.get_password() or ""
+                
+                # 2. Comparamos: Si lo que envió el usuario es diferente a lo que hay...
+                # Esto cubre: Cambiar pass, Poner nueva pass, y BORRAR pass ('' != '1234')
+                if contrasena_equipo != pass_actual:
+                    # set_password maneja la cadena vacía convirtiéndola a None internamente
+                    equipo.set_password(contrasena_equipo)
+                    equipo.save()
+                
+                # Creación de la Orden
+                orden = OrdenServicio(
+                    cliente=cliente,
+                    equipo=equipo,
+                    descripcion_falla=descripcion_falla,
+                    prioridad=prioridad
+                    # ELIMINADO: creado_por=request.user (No existe en tu modelo)
+                )
+                
+                # Guardamos snapshot de la contraseña (hash) en la orden para historial
+                orden.contrasena_equipo = equipo.contrasena_equipo
 
-            nueva_orden = OrdenServicio(
-                cliente=cliente, equipo=equipo, descripcion_falla=descripcion, 
-                contrasena_equipo=pass_cifrada, # Se guarda el hash
-                prioridad=prioridad, 
-                asistente_receptor=request.user, estado=OrdenServicio.ESTADO_NUEVA
-            )
-            if tecnico_id:
-                nueva_orden.tecnico_asignado = User.objects.get(pk=tecnico_id)
-            nueva_orden.save()
-            messages.success(request, f'Orden #{nueva_orden.id} creada correctamente.')
-            return redirect('lista_ordenes')
+                if tecnico_id:
+                    orden.tecnico_asignado = User.objects.get(pk=tecnico_id)
+                
+                orden.save()
+                
+                BitacoraOrden.objects.create(
+                    orden=orden,
+                    usuario=request.user,
+                    descripcion="Orden creada exitosamente."
+                )
 
-    tecnicos_list = User.objects.filter(groups__name='Técnico')
+                messages.success(request, f'Orden #{orden.id} creada exitosamente.')
+                return redirect('detalle_orden', orden_id=orden.id)
+            except Exception as e:
+                # Log del error en consola para debug si es necesario
+                print(f"Error al crear orden: {e}") 
+                messages.error(request, f'Error al crear orden: {e}')
+        else:
+            messages.error(request, 'Faltan datos obligatorios.')
+
+    tecnicos = User.objects.filter(groups__name='Técnico')
     context = {
-        'tecnicos_list': tecnicos_list, 'prioridades': OrdenServicio.PRIORIDAD_OPCIONES, 
-        'cliente_pre': None, 'equipos_pre': []
+        'tecnicos_list': tecnicos,
+        'prioridades': OrdenServicio.PRIORIDAD_OPCIONES,
+        'cliente_pre': cliente_pre,
+        'equipos_pre': equipos_pre
     }
-    if request.GET.get('cliente_id'):
-        context['cliente_pre'] = get_object_or_404(Cliente, pk=request.GET.get('cliente_id'))
-        context['equipos_pre'] = context['cliente_pre'].equipos.all()
     return render(request, 'gestion_ordenes/crear_orden.html', context)
 
 @login_required
@@ -128,19 +162,26 @@ def editar_orden(request, orden_id):
         if accion == 'guardar_detalles':
             cambios = []
             
-            # LÓGICA DE ENCRIPTACIÓN AL EDITAR
-            nueva_pass_raw = request.POST.get('contrasena_equipo')
+            # LÓGICA DE ENCRIPTACIÓN AL EDITAR (CORREGIDA PARA BORRADO)
+            # Usamos .strip() y convertimos None a '' para asegurar comparación de strings
+            nueva_pass_raw = request.POST.get('contrasena_equipo', '').strip()
             
             # Obtenemos la contraseña actual desencriptada para comparar
-            pass_actual_plana = orden.equipo.get_password()
+            # get_password() puede devolver None, lo convertimos a ''
+            pass_actual_plana = orden.equipo.get_password() or ''
             
-            if nueva_pass_raw and nueva_pass_raw != pass_actual_plana:
-                # Actualizamos Equipo (Genera nuevo hash)
+            if nueva_pass_raw != pass_actual_plana:
+                # Actualizamos Equipo (set_password maneja strings vacíos poniéndolo en None)
                 orden.equipo.set_password(nueva_pass_raw)
                 orden.equipo.save()
-                # Actualizamos el hash en la orden
+                
+                # Actualizamos el hash en la orden para mantener el snapshot
                 orden.contrasena_equipo = orden.equipo.contrasena_equipo
-                cambios.append("Contraseña actualizada (Cifrada)")
+                
+                if not nueva_pass_raw:
+                     cambios.append("Contraseña eliminada del equipo")
+                else:
+                     cambios.append("Contraseña actualizada (Cifrada)")
 
             # Prioridad
             if puede_editar_prioridad:

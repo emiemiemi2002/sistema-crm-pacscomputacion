@@ -99,20 +99,6 @@
         </a>
     </div>
 
-    <!-- Mensajes Globales -->
-    {% if messages %}
-        <div style="margin-bottom: 2rem;">
-        {% for message in messages %}
-            <div style="padding: 1rem; border-radius: 8px; display: flex; justify-content: space-between; align-items: center;
-                {% if message.tags == 'error' %}background:#ffebee; color:#c62828; border:1px solid #ef9a9a;
-                {% else %}background:#e8f5e9; color:#2e7d32; border:1px solid #c8e6c9;{% endif %}">
-                <span>{{ message }}</span>
-                <button onclick="this.parentElement.style.display='none'" style="background:none; border:none; cursor:pointer; color:inherit; font-weight:bold;">&times;</button>
-            </div>
-        {% endfor %}
-        </div>
-    {% endif %}
-
     <div class="admin-grid">
         
         <!-- COLUMNA 1: Edición de Detalles -->

@@ -1,9 +1,11 @@
 import unicodedata
 from django.shortcuts import render, redirect, get_object_or_404
+from django.http import JsonResponse
 from django.core.paginator import Paginator
 from django.db.models import ProtectedError
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, permission_required
+from django.urls import reverse
 from .models import Cliente, Equipo
 
 # --- UTILIDADES PARA BÚSQUEDA INTELIGENTE ---
@@ -85,54 +87,60 @@ def detalle_cliente(request, id):
 
 @login_required
 def crear_equipo(request):
-    cliente_preseleccionado_id = request.GET.get('cliente_id')
-    cliente_obj = None
-    if cliente_preseleccionado_id:
-        cliente_obj = get_object_or_404(Cliente, pk=cliente_preseleccionado_id)
+    """
+    Vista para registrar un equipo.
+    """
+    cliente_pre = None
+    cliente_id = request.GET.get('cliente_id')
+    origen = request.GET.get('next', '') 
+
+    if cliente_id:
+        cliente_pre = get_object_or_404(Cliente, pk=cliente_id)
 
     if request.method == 'POST':
-        cliente_id = request.POST.get('cliente_id')
-        tipo_equipo = request.POST.get('tipo_equipo')
+        cliente_id_post = request.POST.get('cliente_id')
+        tipo = request.POST.get('tipo_equipo')
         marca = request.POST.get('marca')
         modelo = request.POST.get('modelo')
         serie = request.POST.get('serie')
-        # Capturamos la contraseña (si se envía en el form)
-        raw_password = request.POST.get('contrasena_equipo')
+        contrasena = request.POST.get('contrasena_equipo')
+        
+        origen_post = request.POST.get('next', '')
 
-        if cliente_id and tipo_equipo and marca and modelo:
-            cliente = get_object_or_404(Cliente, pk=cliente_id)
+        if cliente_id_post and tipo and marca and modelo:
+            cliente = get_object_or_404(Cliente, pk=cliente_id_post)
+            
             nuevo_equipo = Equipo(
                 cliente=cliente,
-                tipo_equipo=tipo_equipo,
+                tipo_equipo=tipo,
                 marca=marca,
                 modelo=modelo,
                 numero_serie=serie
             )
-            
-            # ENCRIPTACIÓN: Usamos el método del modelo antes de guardar
-            if raw_password:
-                nuevo_equipo.set_password(raw_password)
-            
+            nuevo_equipo.set_password(contrasena)
             nuevo_equipo.save()
+            
             messages.success(request, f'Equipo {marca} {modelo} registrado correctamente.')
 
-            # Redirección inteligente
-            next_url = request.GET.get('next')
-            if next_url == 'crear_orden':
-                return redirect(f'/ordenes/crear/?cliente_id={cliente.id}')
+            # --- LÓGICA DE RETORNO MEJORADA ---
+            if origen_post == 'crear_orden':
+                # MEJORA: Pasamos el ID del equipo creado para que se auto-seleccione
+                url = reverse('crear_orden') + f'?cliente_id={cliente.id}&equipo_creado={nuevo_equipo.id}'
+                return redirect(url)
             
-            return redirect('detalle_cliente', id=cliente.id)
-
-    clientes_list = None
-    if not cliente_obj:
-        clientes_list = Cliente.objects.all().order_by('nombre_completo')
-
-    tipos_equipo = Equipo.TIPO_EQUIPO_OPCIONES
+            elif origen_post == 'detalle_cliente':
+                return redirect('detalle_cliente', id=cliente.id)
+            
+            else:
+                return redirect('detalle_cliente', id=cliente.id)
+        else:
+            messages.error(request, 'Por favor completa los campos obligatorios.')
 
     context = {
-        'cliente_pre': cliente_obj,
-        'clientes_list': clientes_list,
-        'tipos_equipo': tipos_equipo,
+        'clientes_list': Cliente.objects.all().order_by('nombre_completo'),
+        'tipos_equipo': Equipo.TIPO_EQUIPO_OPCIONES,
+        'cliente_pre': cliente_pre,
+        'next_url': origen
     }
     return render(request, 'gestion_clientes/crear_equipo.html', context)
 
@@ -217,3 +225,18 @@ def eliminar_cliente(request, id):
             return redirect('detalle_cliente', id=cliente.id)
 
     return render(request, 'gestion_clientes/cliente_confirm_delete.html', {'cliente': cliente})
+
+@login_required
+def obtener_password_equipo_api(request, equipo_id):
+    """
+    API interna para obtener la contraseña desencriptada de un equipo.
+    Usada en crear_orden vía AJAX.
+    """
+    equipo = get_object_or_404(Equipo, pk=equipo_id)
+    # Reutilizamos tu método get_password del modelo
+    password_plana = equipo.get_password() 
+    
+    return JsonResponse({
+        'id': equipo.id,
+        'password': password_plana if password_plana else ''
+    })

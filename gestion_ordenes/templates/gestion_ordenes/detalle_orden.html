@@ -107,16 +107,6 @@
         </div>
     </header>
 
-    {% if messages %}
-    <div style="margin-bottom: 20px;">
-        {% for message in messages %}
-            <div style="padding: 10px; background: #e8f5e9; border: 1px solid #c8e6c9; border-radius: 6px; color: #1b5e20;">
-                {{ message }}
-            </div>
-        {% endfor %}
-    </div>
-    {% endif %}
-
     {% if es_cerrada %}
     <div class="closed-banner">
         Esta orden está cerrada. No se permiten más modificaciones.

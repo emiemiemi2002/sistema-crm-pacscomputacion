@@ -41,10 +41,6 @@
     
     .link-ver-mas { color: var(--color-primario); font-size: 0.85rem; cursor: pointer; text-decoration: underline; margin-left: 5px; }
 
-    /* Mensajes */
-    .alert { padding: 1rem; margin-bottom: 1rem; border-radius: 8px; font-weight: 500; }
-    .alert-success { background-color: #e8f5e9; color: #1b5e20; border: 1px solid #c8e6c9; }
-
     /* --- ESTILOS DEL MODAL (NUEVO) --- */
     .modal-overlay {
         display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
@@ -75,15 +71,6 @@
     <div class="page-header">
         <h1 class="page-title">Gestión de Catálogos</h1>
     </div>
-
-    <!-- Mensajes de Django -->
-    {% if messages %}
-        {% for message in messages %}
-            <div class="alert alert-{{ message.tags }}">
-                {{ message }}
-            </div>
-        {% endfor %}
-    {% endif %}
 
     <!-- Navegación de Pestañas -->
     <nav class="tabs-nav">
