@@ -10,6 +10,10 @@ urlpatterns = [
 
     # API Interna (NUEVA)
     path('api/equipo/<int:equipo_id>/password/', views.obtener_password_equipo_api, name='api_password_equipo'),
+
+    # CRUD Equipos
+    path('equipos/editar/<int:pk>/', views.editar_equipo, name='editar_equipo'),
+    path('equipos/eliminar/<int:pk>/', views.eliminar_equipo, name='eliminar_equipo'),
     
     # Rutas con parámetros variables
     path('<int:id>/', views.detalle_cliente, name='detalle_cliente'),

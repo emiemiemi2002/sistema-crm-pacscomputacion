@@ -34,4 +34,8 @@ urlpatterns = [
 
     # Actualización de estado de la orden
     path('orden/<int:orden_id>/estado/', views.actualizar_estado_orden, name='actualizar_estado_orden'),
+
+    # Gestión de Bitácora
+    path('orden/<int:orden_id>/bitacora/<int:entrada_id>/editar/', views.editar_bitacora, name='editar_bitacora'),
+    path('orden/<int:orden_id>/bitacora/<int:entrada_id>/eliminar/', views.eliminar_bitacora, name='eliminar_bitacora'),
 ]

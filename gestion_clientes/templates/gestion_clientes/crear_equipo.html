@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
 
-{% block title %}Registrar Equipo - CRM PACS{% endblock %}
+{% block title %}{% if editar %}Editar{% else %}Registrar{% endif %} Equipo - CRM PACS{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -42,7 +42,7 @@
         cursor: not-allowed;
     }
 
-    /* ESTILO NUEVO: Grupo de Password */
+    /* Grupo de Password */
     .password-wrapper { position: relative; }
     .password-wrapper input { padding-right: 40px; } 
     .toggle-password {
@@ -56,34 +56,32 @@
 {% block content %}
 
     <div class="page-header" style="text-align: center;">
-        <h1 class="page-title">Registrar Nuevo Equipo</h1>
+        <h1 class="page-title">{% if editar %}Editar Detalles del Equipo{% else %}Registrar Nuevo Equipo{% endif %}</h1>
     </div>
 
     <div class="form-card">
         <form method="POST">
             {% csrf_token %}
             
-            <!-- MEJORA: Campo oculto para manejar el retorno (next) -->
+            {% if next_url %}
             <input type="hidden" name="next" value="{{ next_url }}">
+            {% endif %}
             
             <!-- Selección de Cliente -->
             <div class="form-group">
                 <label for="cliente_select">Cliente Propietario *</label>
                 {% if cliente_pre %}
-                    <!-- Caso 1: Cliente ya seleccionado (viene de otra vista) -->
                     <input type="text" class="client-readonly" value="{{ cliente_pre.nombre_completo }}" readonly>
                     <input type="hidden" name="cliente_id" value="{{ cliente_pre.id }}">
                 {% else %}
-                    <!-- Caso 2: Selección manual -->
                     <select name="cliente_id" id="cliente_select" required>
                         <option value="">-- Selecciona un Cliente --</option>
                         {% for c in clientes_list %}
-                            <option value="{{ c.id }}">{{ c.nombre_completo }}</option>
+                            <option value="{{ c.id }}" {% if equipo and equipo.cliente.id == c.id %}selected{% endif %}>
+                                {{ c.nombre_completo }}
+                            </option>
                         {% endfor %}
                     </select>
-                    <small style="margin-top: 0.25rem;">
-                        ¿No encuentras al cliente? <a href="{% url 'lista_clientes' %}" style="color: var(--color-primario);">Créalo primero aquí</a>.
-                    </small>
                 {% endif %}
             </div>
 
@@ -94,50 +92,57 @@
                     <select name="tipo_equipo" id="tipo_equipo" required>
                         <option value="">-- Selecciona Tipo --</option>
                         {% for codigo, nombre in tipos_equipo %}
-                            <option value="{{ codigo }}">{{ nombre }}</option>
+                            <option value="{{ codigo }}" {% if equipo and equipo.tipo_equipo == codigo %}selected{% endif %}>
+                                {{ nombre }}
+                            </option>
                         {% endfor %}
                     </select>
                 </div>
                 <div class="form-group">
                     <label for="marca">Marca *</label>
-                    <input type="text" name="marca" id="marca" placeholder="Ej. Dell, HP, Apple" required>
+                    <input type="text" name="marca" id="marca" placeholder="Ej. Dell, HP, Apple" 
+                           value="{{ equipo.marca|default:'' }}" required>
                 </div>
             </div>
 
             <div class="form-row">
                 <div class="form-group">
                     <label for="modelo">Modelo *</label>
-                    <input type="text" name="modelo" id="modelo" placeholder="Ej. Inspiron 15, MacBook Air" required>
+                    <input type="text" name="modelo" id="modelo" placeholder="Ej. Inspiron 15, MacBook Air" 
+                           value="{{ equipo.modelo|default:'' }}" required>
                 </div>
                 <div class="form-group">
                     <label for="serie">Número de Serie</label>
-                    <input type="text" name="serie" id="serie" placeholder="S/N (Opcional pero recomendado)">
+                    <input type="text" name="serie" id="serie" placeholder="S/N (Opcional)" 
+                           value="{{ equipo.numero_serie|default:'' }}">
                 </div>
             </div>
 
-            <!-- MEJORA: Campo de Contraseña -->
+            <!-- Campo de Contraseña -->
             <div class="form-group">
                 <label for="contrasena">Contraseña del Equipo / PIN (Opcional)</label>
                 <div class="password-wrapper">
-                    <input type="password" name="contrasena_equipo" id="contrasena" placeholder="Patrón de desbloqueo, PIN o contraseña de usuario" autocomplete="new-password">
+                    <!-- Si editamos, cargamos la contraseña desencriptada en el value -->
+                    <input type="password" name="contrasena_equipo" id="contrasena" 
+                           placeholder="Patrón de desbloqueo, PIN o contraseña" autocomplete="new-password"
+                           value="{% if equipo %}{{ equipo.get_password|default:'' }}{% endif %}">
                     <button type="button" class="toggle-password" onclick="togglePasswordVisibility('contrasena')" title="Mostrar/Ocultar">
                         <svg style="width:20px;height:20px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
                     </button>
                 </div>
-                <small style="color: #666; font-size: 0.85rem; margin-top: 0.25rem;">Se guardará de forma segura (encriptada). Solo los técnicos podrán verla.</small>
+                <small style="color: #666; font-size: 0.85rem; margin-top: 0.25rem;">
+                    {% if editar %}Modifica este campo solo si deseas cambiar la contraseña.{% else %}Se guardará de forma segura (encriptada).{% endif %}
+                </small>
             </div>
 
             <div class="form-actions">
-                <!-- Lógica inteligente para el botón Cancelar -->
-                {% if next_url == 'crear_orden' and cliente_pre %}
-                    <a href="{% url 'crear_orden' %}?cliente_id={{ cliente_pre.id }}" class="btn btn-secondary" style="text-decoration: none; border: 1px solid #ccc; color: #333;">Cancelar</a>
-                {% elif next_url == 'detalle_cliente' and cliente_pre %}
+                {% if cliente_pre %}
                     <a href="{% url 'detalle_cliente' cliente_pre.id %}" class="btn btn-secondary" style="text-decoration: none; border: 1px solid #ccc; color: #333;">Cancelar</a>
                 {% else %}
                     <a href="{% url 'lista_clientes' %}" class="btn btn-secondary" style="text-decoration: none; border: 1px solid #ccc; color: #333;">Cancelar</a>
                 {% endif %}
 
-                <button type="submit" class="btn btn-primary">Guardar Equipo</button>
+                <button type="submit" class="btn btn-primary">{% if editar %}Guardar Cambios{% else %}Registrar Equipo{% endif %}</button>
             </div>
         </form>
     </div>

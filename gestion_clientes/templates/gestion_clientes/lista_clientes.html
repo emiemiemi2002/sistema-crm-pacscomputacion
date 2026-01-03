@@ -68,10 +68,14 @@
 
     <div class="page-header">
         <h1 class="page-title">Clientes</h1>
+        
+        <!-- PERMISO: Solo agregar cliente si tiene permiso add_cliente -->
+        {% if perms.gestion_clientes.add_cliente %}
         <a href="{% url 'crear_cliente' %}" class="btn btn-action">
             <svg style="width:20px;height:20px;margin-right:5px;vertical-align:bottom;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
             Crear Nuevo Cliente
         </a>
+        {% endif %}
     </div>
 
     <!-- Formulario de Búsqueda -->
@@ -96,8 +100,9 @@
                         <th>Email</th>
                         <th>RFC</th>
                         <th>Fecha Registro</th>
-                        <!-- Columna extra para acciones si es Gerente -->
-                        {% if perms.gestion_clientes.delete_cliente %}
+                        
+                        <!-- Columna acciones si tiene algún permiso de edición o borrado -->
+                        {% if perms.gestion_clientes.change_cliente or perms.gestion_clientes.delete_cliente %}
                             <th></th>
                         {% endif %}
                     </tr>
@@ -106,6 +111,7 @@
                     {% for cliente in page_obj %}
                     <tr>
                         <td>
+                            <!-- El link de detalle siempre es visible para ver historial -->
                             <a href="{% url 'detalle_cliente' cliente.id %}" class="client-link">{{ cliente.nombre_completo }}</a>
                         </td>
                         <td>{{ cliente.telefono }}</td>
@@ -113,17 +119,29 @@
                         <td>{{ cliente.rfc|default:"--" }}</td>
                         <td>{{ cliente.fecha_registro|date:"d M Y" }}</td>
                         
-                        {% if perms.gestion_clientes.delete_cliente %}
+                        <!-- Botones de Acción -->
+                        {% if perms.gestion_clientes.change_cliente or perms.gestion_clientes.delete_cliente %}
                         <td style="text-align: right;">
+                            
+                            <!-- Botón EDITAR (Nuevo Requerimiento) -->
+                            {% if perms.gestion_clientes.change_cliente %}
+                            <a href="{% url 'editar_cliente' cliente.id %}" class="btn-icon" title="Editar Cliente">
+                                <svg style="width:18px;height:18px" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+                            </a>
+                            {% endif %}
+
+                            <!-- Botón ELIMINAR -->
+                            {% if perms.gestion_clientes.delete_cliente %}
                             <a href="{% url 'eliminar_cliente' cliente.id %}" class="btn-icon delete" title="Eliminar Cliente">
                                 <svg style="width:18px;height:18px" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
                             </a>
+                            {% endif %}
                         </td>
                         {% endif %}
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="{% if perms.gestion_clientes.delete_cliente %}6{% else %}5{% endif %}" style="text-align: center; padding: 3rem; color: #777;">
+                        <td colspan="{% if perms.gestion_clientes.change_cliente or perms.gestion_clientes.delete_cliente %}6{% else %}5{% endif %}" style="text-align: center; padding: 3rem; color: #777;">
                             <div style="margin-bottom: 10px; font-size: 2rem; opacity: 0.3;">📂</div>
                             No se encontraron clientes registrados.
                         </td>

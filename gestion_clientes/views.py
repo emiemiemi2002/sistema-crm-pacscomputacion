@@ -240,3 +240,70 @@ def obtener_password_equipo_api(request, equipo_id):
         'id': equipo.id,
         'password': password_plana if password_plana else ''
     })
+
+# --- GESTIÓN DE EQUIPOS ---
+
+@login_required
+@permission_required('gestion_clientes.change_equipo', raise_exception=True)
+def editar_equipo(request, pk):
+    """
+    Permite editar los datos de un equipo existente.
+    Reutiliza la plantilla crear_equipo.html.
+    """
+    equipo = get_object_or_404(Equipo, pk=pk)
+    
+    if request.method == 'POST':
+        # Captura de datos
+        tipo = request.POST.get('tipo_equipo')
+        marca = request.POST.get('marca')
+        modelo = request.POST.get('modelo')
+        serie = request.POST.get('serie')
+        contrasena = request.POST.get('contrasena_equipo', '').strip()
+        
+        if tipo and marca and modelo:
+            equipo.tipo_equipo = tipo
+            equipo.marca = marca
+            equipo.modelo = modelo
+            equipo.numero_serie = serie
+            
+            # Solo actualizamos contraseña si se escribió algo diferente a la actual
+            pass_actual = equipo.get_password() or ""
+            if contrasena != pass_actual:
+                equipo.set_password(contrasena)
+            
+            equipo.save()
+            messages.success(request, f'Equipo {marca} {modelo} actualizado correctamente.')
+            return redirect('detalle_cliente', id=equipo.cliente.id)
+        else:
+            messages.error(request, 'Completa los campos obligatorios.')
+
+    # Contexto para pre-llenar el formulario
+    context = {
+        'equipo': equipo, # Objeto clave para modo edición
+        'cliente_pre': equipo.cliente,
+        'tipos_equipo': Equipo.TIPO_EQUIPO_OPCIONES,
+        'clientes_list': Cliente.objects.all(), # Por si se quisiera cambiar dueño (opcional)
+        'editar': True 
+    }
+    return render(request, 'gestion_clientes/crear_equipo.html', context)
+
+@login_required
+@permission_required('gestion_clientes.delete_equipo', raise_exception=True)
+def eliminar_equipo(request, pk):
+    """
+    Elimina un equipo. Requiere permisos de nivel Gerente (delete_equipo).
+    """
+    equipo = get_object_or_404(Equipo, pk=pk)
+    cliente_id = equipo.cliente.id
+    
+    if request.method == 'POST':
+        try:
+            nombre_equipo = f"{equipo.tipo_equipo} {equipo.marca}"
+            equipo.delete()
+            messages.success(request, f'Equipo {nombre_equipo} eliminado.')
+            return redirect('detalle_cliente', id=cliente_id)
+        except ProtectedError:
+            messages.error(request, "No se puede eliminar este equipo porque tiene órdenes de servicio asociadas.")
+            return redirect('detalle_cliente', id=cliente_id)
+            
+    return render(request, 'gestion_clientes/equipo_confirm_delete.html', {'equipo': equipo})

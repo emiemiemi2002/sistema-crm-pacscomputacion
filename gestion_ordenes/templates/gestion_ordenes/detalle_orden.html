@@ -3,372 +3,551 @@
 
 {% block title %}Expediente #{{ orden.pk }} | PACS CRM{% endblock %}
 
-{% block content %}
+{% block extra_css %}
+<!-- Font Awesome -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
 
 <style>
-    :root {
-        --primary-color: #2c3e50;
-        --accent-color: #3498db;
-        --bg-light: #f4f6f9;
-        --border-color: #dee2e6;
-        --text-muted: #6c757d;
-        --sidebar-width: 350px;
+    /* --- LAYOUT PRINCIPAL --- */
+    .crm-grid {
+        display: grid;
+        grid-template-columns: 1fr 350px;
+        gap: 2rem;
+        align-items: start;
     }
 
-    .crm-container { max-width: 100%; padding: 20px 40px; font-family: 'Segoe UI', system-ui, sans-serif; background-color: #fff; }
+    @media (max-width: 1200px) {
+        .crm-grid { grid-template-columns: 1fr; }
+        .side-panel { order: -1; margin-bottom: 2rem; }
+    }
 
-    /* HEADER */
-    .expediente-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; padding-bottom: 15px; border-bottom: 2px solid var(--border-color); }
-    .titulo-principal h1 { margin: 0; font-size: 1.8rem; color: var(--primary-color); }
-    .subtitulo { color: var(--text-muted); font-size: 0.95rem; margin-top: 5px; }
+    /* --- TARJETAS --- */
+    .card {
+        background: white; border: 1px solid var(--color-borde);
+        border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.02);
+        margin-bottom: 1.5rem; overflow: hidden;
+    }
+    .card-header {
+        padding: 1rem 1.5rem; background-color: #f8f9fa; border-bottom: 1px solid var(--color-borde);
+        font-weight: 700; color: var(--color-primario); display: flex; justify-content: space-between; align-items: center;
+    }
+    .card-body { padding: 1.5rem; }
 
-    .badge-estado { padding: 8px 16px; border-radius: 4px; font-weight: 700; text-transform: uppercase; font-size: 0.85rem; letter-spacing: 0.5px; }
-    .st-nueva { background: #e3f2fd; color: #0d47a1; border: 1px solid #b3e5fc; }
-    .st-en-diagnostico { background: #fff3cd; color: #856404; border: 1px solid #ffeeba; }
-    .st-en-reparacion { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
-    .st-cancelada { background: #e2e3e5; color: #383d41; }
+    /* --- ENCABEZADO --- */
+    .expediente-header {
+        display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;
+    }
+    .titulo-principal h1 { margin: 0; font-size: 1.8rem; color: var(--color-primario); font-weight: 800; }
+    .subtitulo { color: var(--color-texto-secundario); font-size: 0.9rem; margin-top: 5px; }
+
+    /* --- BADGES --- */
+    .badge-estado { padding: 6px 12px; border-radius: 20px; font-weight: 600; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 6px; }
+    .st-nueva { background: #e3f2fd; color: #0d47a1; }
+    .st-proceso { background: #fff3e0; color: #e65100; }
+    .st-listo { background: #e8f5e9; color: #1b5e20; }
+    .st-cancelado { background: #ffebee; color: #b71c1c; }
+    .st-cerrado { background: #cfd8dc; color: #455a64; }
+
+    /* --- PESTAÑAS --- */
+    .tabs-nav {
+        display: flex; border-bottom: 2px solid var(--color-borde); margin-bottom: 0;
+        background: white; border-radius: 12px 12px 0 0; padding: 0 1rem;
+    }
+    .tab-link {
+        padding: 1rem 1.5rem; cursor: pointer; font-weight: 600; color: var(--color-texto-secundario);
+        border-bottom: 3px solid transparent; transition: all 0.2s; background: none; border: none;
+    }
+    .tab-link:hover { color: var(--color-primario); background-color: #f8f9fa; }
+    .tab-link.active { color: var(--color-primario); border-bottom-color: var(--color-acento-verde); }
+    .tab-content { display: none; padding: 2rem; background: white; border: 1px solid var(--color-borde); border-top: none; border-radius: 0 0 12px 12px; }
+    .tab-content.active { display: block; animation: fadeIn 0.3s ease; }
+
+    /* --- TABLAS --- */
+    .data-table { width: 100%; border-collapse: collapse; }
+    .data-table th { 
+        text-align: left; padding: 1rem; background: #f8f9fa; color: var(--color-texto-secundario); 
+        font-size: 0.8rem; text-transform: uppercase; border-bottom: 2px solid var(--color-borde);
+    }
+    .data-table td { padding: 1rem; border-bottom: 1px solid var(--color-borde); vertical-align: middle; }
+    .action-icons { display: flex; gap: 8px; justify-content: flex-end; }
+    .btn-icon { 
+        width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; 
+        border-radius: 6px; color: #666; background: #f5f5f5; text-decoration: none; border: none; cursor: pointer;
+    }
+    .btn-icon:hover { color: white; background-color: var(--color-primario); }
+    .btn-icon.delete:hover { background-color: #f44336; }
+
+    /* --- DETALLES ESTRUCTURA --- */
+    .info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem; }
+    .info-item label { display: block; font-size: 0.75rem; color: #888; text-transform: uppercase; font-weight: 700; margin-bottom: 4px; }
+    .info-item span { font-size: 1rem; color: #333; font-weight: 500; }
+
+    /* --- CONTRASEÑA --- */
+    .password-display { display: flex; align-items: center; gap: 10px; }
+    .password-display input { 
+        border: none; background: #f1f3f5; padding: 5px 10px; border-radius: 4px; 
+        color: #333; font-family: 'Inter', sans-serif; width: 140px; font-weight: 600;
+    }
+    .btn-eye { cursor: pointer; color: var(--color-primario); background: none; border: none; transition: transform 0.1s; }
+    .btn-eye:active { transform: scale(0.9); }
+    .no-password { 
+        display: inline-block; background: #f8f9fa; color: #999; 
+        padding: 4px 10px; border-radius: 4px; font-size: 0.85rem; font-style: italic; border: 1px dashed #ccc;
+    }
+
+    /* --- BITÁCORA --- */
+    .bitacora-input {
+        width: 100%; min-height: 100px; padding: 1rem;
+        border: 1px solid var(--color-borde); border-radius: 8px;
+        font-family: 'Inter', sans-serif; font-size: 0.95rem; resize: vertical;
+        transition: border-color 0.2s;
+    }
+    .bitacora-input:focus { outline: none; border-color: var(--color-primario); box-shadow: 0 0 0 3px rgba(2, 29, 72, 0.05); }
     
-    /* LAYOUT */
-    .expediente-layout { display: flex; flex-direction: row; gap: 30px; align-items: flex-start; }
-    .sidebar-col { width: var(--sidebar-width); flex-shrink: 0; }
-    .main-col { flex: 1; min-width: 0; }
-    @media (max-width: 992px) { .expediente-layout { flex-direction: column; } .sidebar-col { width: 100%; } }
+    .timeline-item { display: flex; gap: 15px; margin-bottom: 1.5rem; position: relative; }
+    .timeline-marker { display: flex; flex-direction: column; align-items: center; min-width: 20px; }
+    .dot { width: 12px; height: 12px; background: var(--color-primario); border-radius: 50%; margin-top: 6px; }
+    .line { width: 2px; flex-grow: 1; background: #e0e0e0; margin-top: 4px; min-height: 20px; }
+    .timeline-content { flex-grow: 1; background: #fafafa; padding: 1rem; border-radius: 8px; border: 1px solid #eee; }
+    .timeline-header { display: flex; justify-content: space-between; margin-bottom: 0.5rem; }
+    .user-name { font-weight: 700; color: #333; }
+    .time-ago { font-size: 0.85rem; color: #888; }
 
-    /* CARDS */
-    .info-card { background: white; border: 1px solid var(--border-color); border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.03); overflow: hidden; }
-    .card-header { background: #f8f9fa; padding: 12px 15px; border-bottom: 1px solid var(--border-color); font-weight: 600; color: var(--primary-color); }
-    .card-body { padding: 15px; }
+    /* Formulario de edición oculto */
+    .edit-note-form { display: none; margin-top: 10px; }
+    .edit-note-form textarea { width: 100%; padding: 0.8rem; border: 1px solid #ddd; border-radius: 6px; font-family: inherit; margin-bottom: 10px; }
+    .note-text { white-space: pre-wrap; color: #555; line-height: 1.5; }
 
-    /* DATOS SIDEBAR */
-    .data-row { margin-bottom: 12px; }
-    .data-label { display: block; font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700; margin-bottom: 2px;}
-    .data-value { font-size: 0.95rem; color: #333; font-weight: 500; word-wrap: break-word; }
-    .pass-box { background: #fff8e1; padding: 8px; border: 1px dashed #ffc107; color: #b08d00; text-align: center; font-family: monospace; margin-top: 5px; border-radius: 4px;}
+    /* --- PANEL LATERAL --- */
+    .control-panel .form-control {
+        width: 100%; padding: 0.8rem; margin-bottom: 10px;
+        border: 1px solid var(--color-borde); border-radius: 8px;
+    }
+    .btn-full { width: 100%; display: block; text-align: center; margin-bottom: 10px; }
 
-    /* PESTAÑAS */
-    .tabs-wrapper { margin-top: 20px; }
-    .tabs-header { display: flex; border-bottom: 2px solid var(--border-color); margin-bottom: 20px; }
-    .tab-link { padding: 12px 20px; background: none; border: none; border-bottom: 3px solid transparent; font-size: 1rem; color: var(--text-muted); cursor: pointer; font-weight: 500; transition: all 0.2s; }
-    .tab-link:hover { color: var(--accent-color); background: #f8f9fa; }
-    .tab-link.active { color: var(--accent-color); border-bottom-color: var(--accent-color); font-weight: 700; }
-    .tab-content { display: none; animation: fadeIn 0.3s; }
-    .tab-content.active { display: block; }
     @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
-
-    /* BITÁCORA */
-    .bitacora-form { background: #eef2f7; padding: 15px; border-radius: 8px; margin-bottom: 25px; border: 1px solid #dae0e5; }
-    .bitacora-form textarea { width: 100%; border: 1px solid #ced4da; padding: 10px; border-radius: 4px; }
-    .btn-save { background: var(--accent-color); color: white; border: none; padding: 8px 20px; border-radius: 4px; margin-top: 10px; cursor: pointer; float: right; font-weight: 600;}
-    .timeline-container { border-left: 2px solid var(--border-color); margin-left: 20px; padding-left: 25px; position: relative; }
-    .timeline-item { position: relative; margin-bottom: 30px; }
-    .timeline-marker { position: absolute; left: -32px; top: 0; width: 14px; height: 14px; background: var(--accent-color); border-radius: 50%; border: 2px solid white; box-shadow: 0 0 0 1px var(--border-color); }
-    .timeline-meta { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 5px; display: flex; justify-content: space-between;}
-    .timeline-text { background: white; padding: 12px; border: 1px solid var(--border-color); border-radius: 6px; position: relative; box-shadow: 0 1px 3px rgba(0,0,0,0.05);}
-    .timeline-text::before { content: ''; position: absolute; left: -6px; top: 10px; width: 10px; height: 10px; background: white; border-left: 1px solid var(--border-color); border-bottom: 1px solid var(--border-color); transform: rotate(45deg); }
-
-    /* TABLAS */
-    .std-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
-    .std-table th { text-align: left; background: #f8f9fa; padding: 12px; border-bottom: 2px solid var(--border-color); color: var(--text-muted); font-weight: 600; }
-    .std-table td { padding: 12px; border-bottom: 1px solid var(--border-color); vertical-align: middle; }
-    .link-action { color: var(--accent-color); text-decoration: none; font-weight: 500; }
-
-    /* MEJORA: ESTILOS MINIMALISTAS PARA SERVICIOS (Nuevo, pero acorde al original) */
-    .servicios-list { margin-top: 10px; margin-bottom: 15px; }
-    .servicio-tag { 
-        display: inline-block; background: #eef2f7; color: #333; 
-        padding: 4px 10px; border-radius: 4px; font-size: 0.9rem; margin-right: 5px; margin-bottom: 5px; border: 1px solid #ddd;
-    }
-    .btn-add-mini { font-size: 0.8rem; padding: 4px 8px; background: #eee; border: 1px solid #ccc; cursor: pointer; border-radius: 4px; }
-    
-    /* BLOQUEO VISUAL */
-    .closed-banner { 
-        background: #fff5f5; color: #c53030; border: 1px solid #feb2b2; 
-        padding: 10px; border-radius: 6px; margin-bottom: 20px; font-weight: 600;
-    }
 </style>
+{% endblock %}
 
-<div class="crm-container">
-    
-    <!-- HEADER -->
-    <header class="expediente-header">
-        <div class="titulo-principal">
-            <h1>Orden de Servicio #{{ orden.pk }}</h1>
-            <div class="subtitulo">
-                Fecha de Ingreso: {{ orden.fecha_creacion|date:"d M Y, h:i A" }}
-                {% if es_cerrada %}
-                <span style="margin-left:10px; color:#c53030;"><strong>(CERRADA)</strong></span>
-                {% endif %}
-            </div>
-        </div>
-        <div>
-            <span class="badge-estado st-{{ orden.estado|slugify }}">
-                {{ orden.estado }}
-            </span>
-        </div>
-    </header>
+{% block content %}
 
-    {% if es_cerrada %}
-    <div class="closed-banner">
-        Esta orden está cerrada. No se permiten más modificaciones.
+<!-- ENCABEZADO PRINCIPAL -->
+<div class="expediente-header">
+    <div class="titulo-principal">
+        <h1>Orden de Servicio #{{ orden.id }}</h1>
+        <div class="subtitulo">
+            Cliente: <a href="{% url 'detalle_cliente' orden.cliente.id %}" style="color: inherit; font-weight: 600;">{{ orden.cliente.nombre_completo }}</a>
+            | Fecha Ingreso: {{ orden.fecha_creacion|date:"d M Y, H:i" }}
+        </div>
     </div>
-    {% endif %}
-
-    <!-- LAYOUT PRINCIPAL -->
-    <div class="expediente-layout">
-        
-        <!-- SIDEBAR -->
-        <aside class="sidebar-col">
-            
-            <!-- PANEL DE ESTADO (Solo visible si no está cerrada y tiene permisos) -->
-            {% if not es_cerrada and perms.gestion_ordenes.change_ordenservicio %}
-            <div class="info-card" style="border: 2px solid #e3f2fd;">
-                <div class="card-header" style="background:#e3f2fd; color:#1565c0;"><span>Actualizar Estado</span></div>
-                <div class="card-body">
-                    <form method="POST" action="{% url 'actualizar_estado_orden' orden.id %}">
-                        {% csrf_token %}
-                        <select name="nuevo_estado" style="width:100%; padding:6px; margin-bottom:8px;">
-                            <option value="En diagnóstico" {% if orden.estado == 'En diagnóstico' %}selected{% endif %}>En diagnóstico</option>
-                            <option value="Esperando autorización" {% if orden.estado == 'Esperando autorización' %}selected{% endif %}>Esperando autorización</option>
-                            <option value="Esperando refacción" {% if orden.estado == 'Esperando refacción' %}selected{% endif %}>Esperando refacción</option>
-                            <option value="En reparación" {% if orden.estado == 'En reparación' %}selected{% endif %}>En reparación</option>
-                            <option value="Finalizada por Técnico" {% if orden.estado == 'Finalizada por Técnico' %}selected{% endif %}>Finalizada por Técnico</option>
-                        </select>
-                        <button type="submit" class="btn-save" style="width:100%; text-align:center;">Guardar Estado</button>
-                    </form>
-                </div>
-            </div>
-            {% endif %}
-
-            <div class="info-card">
-                <div class="card-header"><span>Cliente</span></div>
-                <div class="card-body">
-                    <div class="data-row">
-                        <span class="data-label">Nombre</span>
-                        <div class="data-value">{{ orden.cliente.nombre_completo }}</div>
-                    </div>
-                    <div class="data-row">
-                        <span class="data-label">Contacto</span>
-                        <div class="data-value">{{ orden.cliente.telefono }}</div>
-                        <div class="data-value" style="font-size: 0.85rem;">{{ orden.cliente.email }}</div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="info-card">
-                <div class="card-header"><span>Equipo</span></div>
-                <div class="card-body">
-                    <div class="data-row">
-                        <span class="data-label">Equipo</span>
-                        <div class="data-value">{{ orden.equipo.tipo_equipo }}</div>
-                    </div>
-                    <div class="data-row">
-                        <span class="data-label">Marca / Modelo</span>
-                        <div class="data-value">{{ orden.equipo.marca }} {{ orden.equipo.modelo }}</div>
-                    </div>
-                    <div class="data-row">
-                        <span class="data-label">N/S</span>
-                        <div class="data-value">{{ orden.equipo.numero_serie|default:"N/A" }}</div>
-                    </div>
-                    {% if orden.contrasena_equipo %}
-                    <div class="pass-box"><i class="fas fa-key"></i> {{ orden.contrasena_equipo }}</div>
-                    {% else %}
-                    <div class="data-row" style="margin-top:10px;"><span class="data-label">Contraseña</span><div class="data-value text-muted">Sin contraseña</div></div>
-                    {% endif %}
-                </div>
-            </div>
-
-            <div class="info-card">
-                <div class="card-header"><span>Responsables</span></div>
-                <div class="card-body">
-                    <div class="data-row">
-                        <span class="data-label">Recepción</span>
-                        <div class="data-value">{{ orden.asistente_receptor.username }}</div>
-                    </div>
-                    <div class="data-row">
-                        <span class="data-label">Técnico Asignado</span>
-                        <div class="data-value">
-                            {% if orden.tecnico_asignado %}
-                                {{ orden.tecnico_asignado.username }}
-                            {% else %}
-                                <span style="color: #dc3545;">Sin Asignar</span>
-                            {% endif %}
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </aside>
-
-        <!-- MAIN CONTENT -->
-        <main class="main-col">
-            
-            <div class="info-card">
-                <div class="card-body">
-                    <span class="data-label">Falla Reportada / Solicitud</span>
-                    <p style="margin-top: 5px; line-height: 1.5;">{{ orden.descripcion_falla|linebreaksbr }}</p>
-                    
-                    <hr style="border:0; border-top:1px solid var(--border-color); margin: 15px 0;">
-                    
-                    <span class="data-label">Servicios Solicitados</span>
-                    <div class="servicios-list">
-                        {% for servicio in orden.servicios.all %}
-                            <span class="servicio-tag">
-                                {{ servicio.nombre_servicio }}
-                                {% if not es_cerrada %}
-                                <a href="{% url 'eliminar_servicio_orden' orden.id servicio.id %}" style="color:#c53030; text-decoration:none; margin-left:5px;">&times;</a>
-                                {% endif %}
-                            </span>
-                        {% empty %}
-                            <span class="text-muted">Ninguno</span>
-                        {% endfor %}
-                    </div>
-                    
-                    {% if not es_cerrada %}
-                    <form method="POST" action="{% url 'agregar_servicio_orden' orden.id %}" style="display:flex; gap:5px;">
-                        {% csrf_token %}
-                        <div style="flex-grow:1;">{{ form_servicio.servicio }}</div>
-                        <button type="submit" class="btn-add-mini">Agregar</button>
-                    </form>
-                    {% endif %}
-                </div>
-            </div>
-
-            <div class="tabs-wrapper">
-                <div class="tabs-header">
-                    <button class="tab-link active" onclick="openTab(event, 'tab-bitacora')">Bitácora</button>
-                    <button class="tab-link" onclick="openTab(event, 'tab-cotizaciones')">Cotizaciones ({{ cotizaciones.count }})</button>
-                    <button class="tab-link" onclick="openTab(event, 'tab-transferencias')">Transferencias ({{ transferencias.count }})</button>
-                </div>
-
-                <!-- BITÁCORA -->
-                <div id="tab-bitacora" class="tab-content active">
-                    {% if not es_cerrada %}
-                    <div class="bitacora-form">
-                        <form method="post">
-                            {% csrf_token %}
-                            <label class="data-label" style="margin-bottom:8px;">Agregar Nota o Actualización</label>
-                            {{ form_bitacora.descripcion }}
-                            <div style="overflow: hidden;">
-                                <button type="submit" class="btn-save">Publicar</button>
-                            </div>
-                        </form>
-                    </div>
-                    {% endif %}
-
-                    <div class="timeline-container">
-                        {% for entrada in bitacora %}
-                        <div class="timeline-item">
-                            <div class="timeline-marker"></div>
-                            <div class="timeline-meta">
-                                <strong>{{ entrada.usuario.username }}</strong>
-                                <span>{{ entrada.fecha_hora|date:"d M Y, h:i A" }}</span>
-                            </div>
-                            <div class="timeline-text">{{ entrada.descripcion|linebreaksbr }}</div>
-                        </div>
-                        {% empty %}
-                        <p style="color:var(--text-muted); font-style: italic; padding: 20px;">No hay registros.</p>
-                        {% endfor %}
-                    </div>
-                </div>
-
-                <!-- COTIZACIONES -->
-                <div id="tab-cotizaciones" class="tab-content">
-                    <div class="info-card">
-                        {% if not es_cerrada %}
-                        <div style="padding: 15px; border-bottom: 1px solid var(--border-color); text-align: right;">
-                            <a href="{% url 'crear_cotizacion' orden.id %}" class="btn-save" style="text-decoration:none; font-size:0.85rem;">+ Nueva Cotización</a>
-                        </div>
-                        {% endif %}
-                        <table class="std-table">
-                            <thead>
-                                <tr>
-                                    <th>Folio</th>
-                                    <th>Concepto</th>
-                                    <th>Total</th>
-                                    <th>Estado</th>
-                                    <th></th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for cot in cotizaciones %}
-                                <tr>
-                                    <td>#{{ cot.pk }}</td>
-                                    <td>{{ cot.concepto|truncatechars:50 }}</td>
-                                    <td>${{ cot.costo_refacciones|add:cot.costo_mano_obra }}</td>
-                                    <td>{{ cot.estado }}</td>
-                                    <td style="text-align: right;">
-                                        {% if not es_cerrada %}
-                                        <a href="{% url 'editar_cotizacion' orden.id cot.id %}" class="link-action">Editar</a>
-                                        {% else %}
-                                        <span class="text-muted">Ver</span>
-                                        {% endif %}
-                                    </td>
-                                </tr>
-                                {% empty %}
-                                <tr><td colspan="5" style="text-align:center; padding:20px;">Sin cotizaciones.</td></tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
-                <!-- TRANSFERENCIAS -->
-                <div id="tab-transferencias" class="tab-content">
-                    <div class="info-card">
-                        {% if not es_cerrada %}
-                        <div style="padding: 15px; border-bottom: 1px solid var(--border-color); text-align: right;">
-                            <a href="{% url 'crear_transferencia' orden.id %}" class="btn-save" style="text-decoration:none; font-size:0.85rem;">+ Solicitar Pieza</a>
-                        </div>
-                        {% endif %}
-                        <table class="std-table">
-                            <thead>
-                                <tr>
-                                    <th>Folio</th>
-                                    <th>Fecha</th>
-                                    <th>Solicitó</th>
-                                    <th>Autorización</th>
-                                    <th>Referencia / Notas</th>
-                                    <th></th> <!-- Columna acciones -->
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for trans in transferencias %}
-                                <tr>
-                                    <td>#{{ trans.pk }}</td>
-                                    <td>{{ trans.fecha_transferencia|date:"d/m/Y" }}</td>
-                                    <td>{{ trans.usuario_solicitante.username|default:"-" }}</td>
-                                    <td>
-                                        {% if trans.usuario_autoriza %}
-                                            <span style="color: green; font-weight: bold;"><i class="fas fa-check"></i> {{ trans.usuario_autoriza.username }}</span>
-                                        {% else %}
-                                            <span style="color: #f39c12; font-weight: bold;"><i class="fas fa-clock"></i> Pendiente</span>
-                                        {% endif %}
-                                    </td>
-                                    <td>
-                                        {% if trans.documento_referencia %}
-                                            <strong>Ref:</strong> {{ trans.documento_referencia }}<br>
-                                        {% endif %}
-                                        <small class="text-muted">{{ trans.notas|truncatechars:30 }}</small>
-                                    </td>
-                                    <td style="text-align: right;">
-                                        {% if not es_cerrada %}
-                                        <a href="{% url 'editar_transferencia' orden.id trans.id %}" class="link-action">Gestionar</a>
-                                        {% endif %}
-                                    </td>
-                                </tr>
-                                {% empty %}
-                                <tr><td colspan="6" style="text-align:center; padding:20px;">No hay transferencias de almacén registradas.</td></tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
-            </div>
-        </main>
+    
+    <div>
+        {% if es_cerrada %}
+            <span class="badge-estado st-cerrado"><i class="fas fa-lock"></i> CERRADA: {{ orden.estado }}</span>
+        {% elif orden.estado == 'Nueva' %}
+            <span class="badge-estado st-nueva"><i class="fas fa-star"></i> {{ orden.estado }}</span>
+        {% elif 'Finalizada' in orden.estado %}
+            <span class="badge-estado st-listo"><i class="fas fa-check-circle"></i> {{ orden.estado }}</span>
+        {% else %}
+            <span class="badge-estado st-proceso"><i class="fas fa-tools"></i> {{ orden.estado }}</span>
+        {% endif %}
     </div>
 </div>
 
+<div class="crm-grid">
+
+    <!-- COLUMNA IZQUIERDA -->
+    <div class="main-panel">
+        
+        <!-- Tarjeta de Equipo -->
+        <div class="card">
+            <div class="card-header">
+                <span><i class="fas fa-laptop"></i> Detalles del Equipo</span>
+                {% if not es_cerrada and perms.gestion_ordenes.change_ordenservicio %}
+                <a href="{% url 'editar_orden' orden.id %}" class="btn btn-secondary" style="font-size: 0.8rem; padding: 0.4rem 0.8rem;">
+                    <i class="fas fa-edit"></i> Editar Detalles
+                </a>
+                {% endif %}
+            </div>
+            <div class="card-body">
+                <div class="info-grid">
+                    <div class="info-item">
+                        <label>Equipo</label>
+                        <span>{{ orden.equipo.tipo_equipo }} {{ orden.equipo.marca }}</span>
+                    </div>
+                    <div class="info-item">
+                        <label>Modelo / Serie</label>
+                        <span>{{ orden.equipo.modelo }} / {{ orden.equipo.numero_serie|default:"S/N" }}</span>
+                    </div>
+                    <div class="info-item">
+                        <label>Contraseña / PIN</label>
+                        {% if orden.contrasena_equipo %}
+                            <div class="password-display">
+                                <!-- Usamos get_password para cargar el valor real pero en campo password -->
+                                <input type="password" value="{{ orden.equipo.get_password|default:'' }}" id="pass-field" disabled>
+                                <button type="button" class="btn-eye" onclick="showPasswordTemporary()" title="Ver por 5 segundos">
+                                    <i class="fas fa-eye" id="eye-icon"></i>
+                                </button>
+                            </div>
+                        {% else %}
+                            <!-- MEJORA: Leyenda estética cuando no hay contraseña -->
+                            <span class="no-password">Sin contraseña</span>
+                        {% endif %}
+                    </div>
+                    <div class="info-item">
+                        <label>Técnico Asignado</label>
+                        {% if orden.tecnico_asignado %}
+                            <span style="color: var(--color-primario); font-weight: 700;">
+                                <i class="fas fa-user-cog"></i> {{ orden.tecnico_asignado.get_full_name|default:orden.tecnico_asignado.username }}
+                            </span>
+                        {% else %}
+                            <span style="color: #999; font-style: italic;">Sin asignar</span>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <div style="margin-top: 1.5rem; padding-top: 1rem; border-top: 1px dashed #eee;">
+                    <label style="font-size: 0.75rem; color: #888; text-transform: uppercase; font-weight: 700;">Reporte de Falla (Cliente)</label>
+                    <p style="margin-top: 0.5rem; line-height: 1.5; color: #444;">{{ orden.descripcion_falla }}</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Pestañas -->
+        <div>
+            <div class="tabs-nav">
+                <button class="tab-link active" onclick="openTab(event, 'bitacora')"><i class="fas fa-history"></i> Bitácora</button>
+                <button class="tab-link" onclick="openTab(event, 'servicios')"><i class="fas fa-concierge-bell"></i> Servicios</button>
+                <button class="tab-link" onclick="openTab(event, 'cotizaciones')"><i class="fas fa-file-invoice-dollar"></i> Cotizaciones</button>
+                <button class="tab-link" onclick="openTab(event, 'transferencias')"><i class="fas fa-boxes"></i> Transferencias</button>
+            </div>
+
+            <!-- PESTAÑA 1: BITÁCORA (MEJORADA) -->
+            <div id="bitacora" class="tab-content active">
+                <!-- PERMISO: Agregar Nota (Casi todos) -->
+                {% if not es_cerrada and perms.gestion_ordenes.add_bitacoraorden %}
+                <form method="POST" style="margin-bottom: 2.5rem;">
+                    {% csrf_token %}
+                    <label style="font-weight: 600; color: var(--color-texto-secundario); margin-bottom: 0.5rem; display: block;">Agregar Nota de Progreso:</label>
+                    <div style="display: flex; gap: 15px; align-items: flex-start;">
+                        <textarea name="descripcion" class="bitacora-input" placeholder="Describe el avance, diagnóstico o comentarios importantes..."></textarea>
+                        <button type="submit" name="btn_bitacora" class="btn btn-primary" style="height: 50px; width: 50px; display: flex; align-items: center; justify-content: center; border-radius: 8px;">
+                            <i class="fas fa-paper-plane"></i>
+                        </button>
+                    </div>
+                </form>
+                {% endif %}
+
+                <div class="timeline">
+                    {% for evento in orden.bitacora.all %}
+                    <div class="timeline-item" id="nota-{{ evento.id }}">
+                        <div class="timeline-marker">
+                            <div class="dot"></div>
+                            <div class="line"></div>
+                        </div>
+                        <div class="timeline-content">
+                            <div class="timeline-header">
+                                <div>
+                                    <span class="user-name">{{ evento.usuario.username }}</span>
+                                    <span class="time-ago">• {{ evento.fecha_hora|date:"d M Y, h:i A" }}</span>
+                                </div>
+                                <!-- ACCIONES DE BITÁCORA -->
+                                <div class="action-icons">
+                                    {% if perms.gestion_ordenes.change_bitacoraorden %}
+                                    <button class="btn-icon" title="Editar nota" onclick="toggleEditNota('{{ evento.id }}')">
+                                        <i class="fas fa-pencil-alt" style="font-size: 0.8rem;"></i>
+                                    </button>
+                                    {% endif %}
+                                    
+                                    {% if perms.gestion_ordenes.delete_bitacoraorden %}
+                                    <form action="{% url 'eliminar_bitacora' orden.id evento.id %}" method="POST" onsubmit="return confirm('¿Eliminar esta nota de la bitácora?');" style="display:inline;">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn-icon delete" title="Eliminar nota">
+                                            <i class="fas fa-trash" style="font-size: 0.8rem;"></i>
+                                        </button>
+                                    </form>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <!-- CONTENIDO DE LA NOTA -->
+                            <div id="view-text-{{ evento.id }}" class="note-text">{{ evento.descripcion }}</div>
+                            
+                            <!-- FORMULARIO DE EDICIÓN OCULTO (In-Place Edit) -->
+                            <form action="{% url 'editar_bitacora' orden.id evento.id %}" method="POST" id="edit-form-{{ evento.id }}" class="edit-note-form">
+                                {% csrf_token %}
+                                <textarea name="descripcion" rows="3">{{ evento.descripcion }}</textarea>
+                                <div style="display:flex; justify-content:flex-end; gap:8px;">
+                                    <button type="button" class="btn btn-secondary" onclick="toggleEditNota('{{ evento.id }}')" style="padding:0.4rem 0.8rem; font-size:0.85rem;">Cancelar</button>
+                                    <button type="submit" class="btn btn-primary" style="padding:0.4rem 0.8rem; font-size:0.85rem;">Guardar</button>
+                                </div>
+                            </form>
+
+                        </div>
+                    </div>
+                    {% empty %}
+                        <p style="color: #999; font-style: italic; text-align: center; padding: 2rem;">No hay registros en la bitácora.</p>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- PESTAÑA 2: SERVICIOS APLICADOS -->
+            <div id="servicios" class="tab-content">
+                {% if not es_cerrada and perms.gestion_ordenes.change_ordenservicio %}
+                <form action="{% url 'agregar_servicio_orden' orden.id %}" method="POST" style="margin-bottom: 1.5rem; background: #f8f9fa; padding: 1.5rem; border-radius: 8px; display: flex; gap: 15px; align-items: flex-end;">
+                    {% csrf_token %}
+                    <div style="flex-grow: 1;">
+                        <label style="font-weight: 600; margin-bottom: 5px; display: block;">Vincular Servicio del Catálogo:</label>
+                        <select name="servicio_id" class="form-control" style="width: 100%; padding: 0.7rem; border-radius: 6px; border: 1px solid #ddd;">
+                            <option value="">-- Seleccionar Servicio --</option>
+                            {% for servicio in servicios_catalogo %}
+                                <option value="{{ servicio.id }}">{{ servicio.nombre_servicio }} - ${{ servicio.costo_estandar }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-action" style="height: 42px;">
+                        <i class="fas fa-plus"></i> Vincular
+                    </button>
+                </form>
+                {% endif %}
+
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Servicio</th>
+                            <th>Costo Estándar</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for servicio in servicios_aplicados %}
+                        <tr>
+                            <td>{{ servicio.nombre_servicio }}</td>
+                            <td>${{ servicio.costo_estandar }}</td>
+                            <td style="text-align: right;">
+                                {% if not es_cerrada and perms.gestion_ordenes.change_ordenservicio %}
+                                <a href="{% url 'eliminar_servicio_orden' orden.id servicio.id %}" 
+                                   class="btn-icon delete" 
+                                   title="Quitar servicio"
+                                   style="display: inline-flex;"
+                                   onclick="return confirm('¿Estás seguro de quitar el servicio {{ servicio.nombre_servicio }} de esta orden?');">
+                                    <i class="fas fa-trash-alt"></i>
+                                </a>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="3" style="text-align: center; color: #999; padding: 2rem;">No hay servicios adicionales vinculados.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- PESTAÑA 3: COTIZACIONES -->
+            <div id="cotizaciones" class="tab-content">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                    <h3 style="font-size: 1.1rem; margin: 0;">Historial de Cotizaciones</h3>
+                    {% if not es_cerrada and perms.gestion_ordenes.add_cotizacion %}
+                    <a href="{% url 'crear_cotizacion' orden.id %}" class="btn btn-action">
+                        <i class="fas fa-plus"></i> Nueva Cotización
+                    </a>
+                    {% endif %}
+                </div>
+
+                <div class="table-responsive">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Concepto</th>
+                                <th>Tipo</th>
+                                <th>Total</th>
+                                <th>Estado</th>
+                                <th>Creado Por</th>
+                                <th style="text-align: right;">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for c in cotizaciones %}
+                            <tr>
+                                <td>
+                                    <strong>{{ c.concepto|truncatechars:30 }}</strong><br>
+                                    <small style="color:#888;">{{ c.fecha_creacion|date:"d/m/Y" }}</small>
+                                </td>
+                                <td>{{ c.get_tipo_cotizacion_display }}</td>
+                                <td style="font-weight: 700; color: #2e7d32;">${{ c.costo_total }}</td>
+                                <td>
+                                    {% if c.estado == 'Autorizada' %}
+                                        <span class="badge-estado st-listo">Autorizada</span>
+                                    {% elif c.estado == 'Rechazada' %}
+                                        <span class="badge-estado st-cancelado">Rechazada</span>
+                                    {% else %}
+                                        <span class="badge-estado st-proceso">{{ c.estado }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ c.usuario_creador.username }}</td>
+                                <td>
+                                    <div class="action-icons">
+                                        {% if not es_cerrada and perms.gestion_ordenes.change_cotizacion %}
+                                        <a href="{% url 'editar_cotizacion' orden.id c.id %}" class="btn-icon" title="Ver/Editar"><i class="fas fa-pencil-alt"></i></a>
+                                        {% endif %}
+                                        {% if not es_cerrada and perms.gestion_ordenes.delete_cotizacion %}
+                                        <form action="{% url 'eliminar_cotizacion' orden.id c.id %}" method="POST" onsubmit="return confirm('¿Eliminar cotización permanentemente?');" style="display:inline;">
+                                            {% csrf_token %}
+                                            <button type="submit" class="btn-icon delete" title="Eliminar"><i class="fas fa-trash"></i></button>
+                                        </form>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr><td colspan="6" style="text-align: center; color: #999; padding: 2rem;">No hay cotizaciones registradas.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                        {% if cotizaciones %}
+                        <tfoot>
+                            <tr style="background-color: #f1f8e9;">
+                                <td colspan="2" style="text-align: right; font-weight: 700;">Total Autorizado:</td>
+                                <td colspan="4" style="font-weight: 800; color: #2e7d32;">${{ total_cotizado }}</td>
+                            </tr>
+                        </tfoot>
+                        {% endif %}
+                    </table>
+                </div>
+            </div>
+
+            <!-- PESTAÑA 4: TRANSFERENCIAS -->
+            <div id="transferencias" class="tab-content">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                    <h3 style="font-size: 1.1rem; margin: 0;">Movimientos de Almacén</h3>
+                    {% if not es_cerrada and perms.gestion_ordenes.add_transferencia %}
+                    <a href="{% url 'crear_transferencia' orden.id %}" class="btn btn-action">
+                        <i class="fas fa-dolly"></i> Solicitar Material
+                    </a>
+                    {% endif %}
+                </div>
+
+                <div class="table-responsive">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Referencia</th>
+                                <th>Ítems</th>
+                                <th>Estado</th>
+                                <th>Solicitante</th>
+                                <th style="text-align: right;">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for t in transferencias %}
+                            <tr>
+                                <td>
+                                    <strong>{{ t.documento_referencia }}</strong><br>
+                                    <small style="color:#888;">{{ t.fecha_transferencia|date:"d/m/Y" }}</small>
+                                </td>
+                                <td>{{ t.items.count }} ítems</td>
+                                <td>
+                                    {% if t.usuario_autoriza %}
+                                        <span class="badge-estado st-listo" title="Autorizado por {{ t.usuario_autoriza.username }}">
+                                            <i class="fas fa-check-double"></i> Autorizado
+                                        </span>
+                                    {% else %}
+                                        <span class="badge-estado st-proceso">
+                                            <i class="fas fa-clock"></i> Pendiente
+                                        </span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ t.usuario_solicitante.username }}</td>
+                                <td>
+                                    <div class="action-icons">
+                                        <!-- PERMISO: Gestionar Transferencia (Solo si puede cambiarla) -->
+                                        {% if not es_cerrada and perms.gestion_ordenes.change_transferencia %}
+                                        <a href="{% url 'editar_transferencia' orden.id t.id %}" class="btn-icon" title="Gestionar/Autorizar"><i class="fas fa-cog"></i></a>
+                                        {% endif %}
+                                        
+                                        <!-- PERMISO: Eliminar Transferencia (Gerente) -->
+                                        {% if not es_cerrada and perms.gestion_ordenes.delete_transferencia %}
+                                        <form action="{% url 'eliminar_transferencia' orden.id t.id %}" method="POST" onsubmit="return confirm('¿Cancelar y eliminar esta solicitud de transferencia?');" style="display:inline;">
+                                            {% csrf_token %}
+                                            <button type="submit" class="btn-icon delete" title="Eliminar"><i class="fas fa-trash"></i></button>
+                                        </form>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr><td colspan="5" style="text-align: center; color: #999; padding: 2rem;">No hay solicitudes de almacén.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- COLUMNA DERECHA -->
+    <div class="side-panel control-panel">
+        
+        <div class="card">
+            <div class="card-header" style="background: var(--color-primario); color: white;">
+                <i class="fas fa-tasks"></i> Gestión de Estado
+            </div>
+            <div class="card-body">
+                <div style="text-align: center; margin-bottom: 1.5rem;">
+                    <div style="font-size: 0.8rem; color: #888;">ESTADO ACTUAL</div>
+                    <div style="font-size: 1.2rem; font-weight: 700; color: var(--color-primario);">{{ orden.estado }}</div>
+                </div>
+
+                {% if not es_cerrada and perms.gestion_ordenes.change_ordenservicio %}
+                <form action="{% url 'actualizar_estado_orden' orden.id %}" method="POST">
+                    {% csrf_token %}
+                    <label for="nuevo_estado" style="display: block; margin-bottom: 5px; font-weight: 600;">Actualizar a:</label>
+                    <select name="nuevo_estado" id="nuevo_estado" class="form-control" required>
+                        <option value="" selected disabled>--- Seleccionar nuevo estado ---</option>
+                        <option value="En diagnóstico">En diagnóstico</option>
+                        <option value="Esperando autorización">Esperando autorización</option>
+                        <option value="Esperando refacción">Esperando refacción</option>
+                        <option value="En reparación">En reparación</option>
+                        <option value="Finalizada por Técnico">Finalizada por Técnico</option>
+                    </select>
+                    <button type="submit" class="btn btn-primary btn-full">Guardar Estado</button>
+                </form>
+                {% endif %}
+                
+                {% if es_cerrada %}
+                <div style="background: #e8f5e9; padding: 1rem; border-radius: 8px; text-align: center; color: #2e7d32;">
+                    <strong><i class="fas fa-lock"></i> Orden Cerrada</strong>
+                    <p style="font-size: 0.9rem; margin: 5px 0 0 0;">Fecha: {{ orden.fecha_cierre|date:"d/m/Y" }}</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-calculator"></i> Resumen
+            </div>
+            <div class="card-body">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                    <span>Cotizaciones Aprobadas:</span>
+                    <span style="font-weight: 600;">${{ total_cotizado }}</span>
+                </div>
+                <div style="border-top: 2px solid #eee; margin-top: 1rem; padding-top: 1rem; display: flex; justify-content: space-between; font-size: 1.1rem; font-weight: 800; color: var(--color-primario);">
+                    <span>TOTAL:</span>
+                    <span>${{ total_cotizado }}</span>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
 <script>
+    // --- PESTAÑAS ---
     function openTab(evt, tabName) {
         var tabcontent = document.getElementsByClassName("tab-content");
         for (var i = 0; i < tabcontent.length; i++) {
@@ -381,7 +560,44 @@
         document.getElementById(tabName).classList.add("active");
         evt.currentTarget.classList.add("active");
     }
-</script>
 
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    // --- SEGURIDAD VISUAL DE CONTRASEÑA ---
+    function showPasswordTemporary() {
+        const input = document.getElementById('pass-field');
+        const icon = document.getElementById('eye-icon');
+        
+        if (input.type === "text") {
+            input.type = "password";
+            icon.classList.remove('fa-eye-slash');
+            icon.classList.add('fa-eye');
+            return;
+        }
+
+        input.type = "text";
+        icon.classList.remove('fa-eye');
+        icon.classList.add('fa-eye-slash');
+        
+        setTimeout(() => {
+            if (input.type === "text") {
+                input.type = "password";
+                icon.classList.remove('fa-eye-slash');
+                icon.classList.add('fa-eye');
+            }
+        }, 5000);
+    }
+
+    // --- EDICIÓN DE NOTAS DE BITÁCORA ---
+    function toggleEditNota(noteId) {
+        const textView = document.getElementById(`view-text-${noteId}`);
+        const editForm = document.getElementById(`edit-form-${noteId}`);
+        
+        if (textView.style.display === 'none') {
+            textView.style.display = 'block';
+            editForm.style.display = 'none';
+        } else {
+            textView.style.display = 'none';
+            editForm.style.display = 'block';
+        }
+    }
+</script>
 {% endblock %}

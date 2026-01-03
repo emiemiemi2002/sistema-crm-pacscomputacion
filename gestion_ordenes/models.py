@@ -102,7 +102,7 @@ class Cotizacion(models.Model):
     FUENTE_STOCK = 'Stock interno'
     FUENTE_PROVEEDOR = 'Pedido a proveedor'
     FUENTE_REFACCION = [
-        (FUENTE_STOCK, 'Stock interno'),
+        (FUENTE_STOCK, 'Stock interno (General o De Servicio)'),
         (FUENTE_PROVEEDOR, 'Pedido a proveedor'),
     ]
 
@@ -110,7 +110,7 @@ class Cotizacion(models.Model):
     TIPO_COTIZACION_INTERNA = 'Cotización interna'
     TIPO_COTIZACION_EXTERNA = 'Cotización externa'
     TIPO_COTIZACION = [
-        (TIPO_COTIZACION_INTERNA, 'Cotización interna (Recepción)'),
+        (TIPO_COTIZACION_INTERNA, 'Cotización interna'),
         (TIPO_COTIZACION_EXTERNA, 'Cotización externa (Ventas)'),
     ]
 

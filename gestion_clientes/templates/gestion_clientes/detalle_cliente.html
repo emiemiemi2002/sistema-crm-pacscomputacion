@@ -57,9 +57,13 @@
     .tag.estado-entregada { background-color: #f5f5f5; color: #616161; }
     .tag.estado-cancelada { background-color: #ffebee; color: #b71c1c; }
 
-    /* Botón Eliminar Estilo */
+    /* Botones */
     .btn-danger-outline { border: 1px solid #e57373; color: #d32f2f; background: white; padding: 0.5rem 1rem; border-radius: 6px; text-decoration: none; font-size: 0.9rem; transition: background 0.2s;}
     .btn-danger-outline:hover { background: #ffebee; }
+    
+    .btn-icon { background: none; border: none; cursor: pointer; color: #888; transition: color 0.2s; padding: 0.3rem;}
+    .btn-icon:hover { color: var(--color-primario); }
+    .btn-icon.delete:hover { color: #d32f2f; }
 
     /* Header de Pestaña con Botón */
     .tab-action-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
@@ -77,6 +81,7 @@
             <span class="subtitle">Registrado el: {{ cliente.fecha_registro|date:"d \d\e F \d\e Y" }}</span>
         </div>
         <div class="header-actions">
+            <!-- PERMISO: Solo Gerente elimina clientes -->
             {% if perms.gestion_clientes.delete_cliente %}
             <a href="{% url 'eliminar_cliente' cliente.id %}" class="btn-danger-outline" title="Eliminar Cliente">
                 <svg style="width:18px;height:18px; vertical-align:text-bottom;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
@@ -84,15 +89,21 @@
             </a>
             {% endif %}
 
+            <!-- PERMISO: Editar Cliente -->
+            {% if perms.gestion_clientes.change_cliente %}
             <a href="{% url 'editar_cliente' cliente.id %}" class="btn btn-action" style="background-color: white; border: 1px solid var(--color-borde); color: var(--color-texto-principal);">
                 <svg style="width:18px;height:18px;margin-right:5px;vertical-align:text-bottom;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
                 Editar Cliente
             </a>
+            {% endif %}
             
+            <!-- PERMISO: Crear Orden (Lleva a agregar equipos) -->
+            {% if perms.gestion_ordenes.add_ordenservicio %}
             <a href="{% url 'crear_orden' %}?cliente_id={{ cliente.id }}" class="btn btn-action">
                 <svg style="width:18px;height:18px;margin-right:5px;vertical-align:text-bottom;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
                 Crear Orden
             </a>
+            {% endif %}
         </div>
     </div>
 
@@ -191,13 +202,15 @@
         <!-- Pestaña 2: Equipos -->
         <div id="equipos" class="tab-pane">
             
-            <!-- MEJORA: Cabecera con botón de crear equipo -->
             <div class="tab-action-header">
                 <h3>Inventario del Cliente</h3>
+                <!-- PERMISO: Agregar Equipos -->
+                {% if perms.gestion_clientes.add_equipo %}
                 <a href="{% url 'crear_equipo' %}?cliente_id={{ cliente.id }}&next=detalle_cliente" class="btn btn-action" style="padding: 0.5rem 1rem; font-size: 0.9rem;">
                     <svg style="width:16px;height:16px; margin-right:5px; vertical-align:text-bottom;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
                     Registrar Nuevo Equipo
                 </a>
+                {% endif %}
             </div>
 
             <div class="table-card">
@@ -209,6 +222,10 @@
                                 <th>Marca</th>
                                 <th>Modelo</th>
                                 <th>Serie (S/N)</th>
+                                <!-- Columna de acciones si hay permisos -->
+                                {% if perms.gestion_clientes.change_equipo or perms.gestion_clientes.delete_equipo %}
+                                    <th></th>
+                                {% endif %}
                             </tr>
                         </thead>
                         <tbody>
@@ -218,10 +235,30 @@
                                 <td>{{ equipo.marca }}</td>
                                 <td>{{ equipo.modelo }}</td>
                                 <td>{{ equipo.numero_serie|default:"--" }}</td>
+                                
+                                {% if perms.gestion_clientes.change_equipo or perms.gestion_clientes.delete_equipo %}
+                                <td style="text-align: right;">
+                                    <!-- Editar Equipo -->
+                                    {% if perms.gestion_clientes.change_equipo %}
+                                    <a href="{% url 'editar_equipo' equipo.id %}" class="btn-icon" title="Editar Equipo">
+                                        <svg style="width:18px;height:18px" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+                                    </a>
+                                    {% endif %}
+                                    
+                                    <!-- Eliminar Equipo -->
+                                    {% if perms.gestion_clientes.delete_equipo %}
+                                    <a href="{% url 'eliminar_equipo' equipo.id %}" class="btn-icon delete" title="Eliminar Equipo">
+                                        <svg style="width:18px;height:18px" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                    </a>
+                                    {% endif %}
+                                </td>
+                                {% endif %}
                             </tr>
                             {% empty %}
                             <tr>
-                                <td colspan="4" style="text-align:center; padding:2rem; color:#777;">No hay equipos registrados.</td>
+                                <td colspan="{% if perms.gestion_clientes.change_equipo or perms.gestion_clientes.delete_equipo %}5{% else %}4{% endif %}" style="text-align:center; padding:2rem; color:#777;">
+                                    No hay equipos registrados.
+                                </td>
                             </tr>
                             {% endfor %}
                         </tbody>

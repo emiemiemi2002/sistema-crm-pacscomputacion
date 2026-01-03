@@ -41,7 +41,7 @@
     
     .link-ver-mas { color: var(--color-primario); font-size: 0.85rem; cursor: pointer; text-decoration: underline; margin-left: 5px; }
 
-    /* --- ESTILOS DEL MODAL (NUEVO) --- */
+    /* --- ESTILOS DEL MODAL --- */
     .modal-overlay {
         display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
         background: rgba(0, 0, 0, 0.5); z-index: 1000; justify-content: center; align-items: center;
@@ -84,10 +84,14 @@
         <div id="proveedores" class="tab-pane {% if active_tab == 'proveedores' %}active{% endif %}">
             <div class="tab-section-header">
                 <h2>Lista de Proveedores</h2>
+                
+                <!-- PERMISO: Solo agregar si puede add_proveedor -->
+                {% if perms.catalogo.add_proveedor %}
                 <a href="{% url 'crear_proveedor' %}" class="btn btn-action">
                     <svg style="width:20px;height:20px; vertical-align:bottom; margin-right:5px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
                     Agregar Proveedor
                 </a>
+                {% endif %}
             </div>
             
             <div class="table-container">
@@ -99,7 +103,10 @@
                                 <th>Contacto</th>
                                 <th>Teléfono</th>
                                 <th>Email</th>
+                                <!-- Columna acciones solo si tiene permisos de edición o borrado -->
+                                {% if perms.catalogo.change_proveedor or perms.catalogo.delete_proveedor %}
                                 <th>Acciones</th>
+                                {% endif %}
                             </tr>
                         </thead>
                         <tbody>
@@ -109,18 +116,29 @@
                                 <td>{{ p.persona_contacto|default:"--" }}</td>
                                 <td>{{ p.telefono|default:"--" }}</td>
                                 <td>{{ p.email|default:"--" }}</td>
+                                
+                                {% if perms.catalogo.change_proveedor or perms.catalogo.delete_proveedor %}
                                 <td class="actions-cell">
+                                    {% if perms.catalogo.change_proveedor %}
                                     <a href="{% url 'editar_proveedor' p.id %}" class="btn-icon" title="Editar">
                                         <svg style="width:20px;height:20px" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
                                     </a>
+                                    {% endif %}
+                                    
+                                    {% if perms.catalogo.delete_proveedor %}
                                     <a href="{% url 'eliminar_proveedor' p.id %}" class="btn-icon delete" title="Eliminar">
                                         <svg style="width:20px;height:20px" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
                                     </a>
+                                    {% endif %}
                                 </td>
+                                {% endif %}
                             </tr>
                             {% empty %}
                             <tr>
-                                <td colspan="5" style="text-align:center; padding:2rem; color:#777;">No hay proveedores registrados.</td>
+                                <!-- Ajuste de colspan si no hay acciones -->
+                                <td colspan="{% if perms.catalogo.change_proveedor or perms.catalogo.delete_proveedor %}5{% else %}4{% endif %}" style="text-align:center; padding:2rem; color:#777;">
+                                    No hay proveedores registrados.
+                                </td>
                             </tr>
                             {% endfor %}
                         </tbody>
@@ -129,14 +147,18 @@
             </div>
         </div>
 
-        <!-- PESTAÑA SERVICIOS (MEJORADA) -->
+        <!-- PESTAÑA SERVICIOS -->
         <div id="servicios" class="tab-pane {% if active_tab == 'servicios' %}active{% endif %}">
             <div class="tab-section-header">
                 <h2>Lista de Tipos de Servicio</h2>
+                
+                <!-- PERMISO: Solo agregar si puede add_tiposervicio -->
+                {% if perms.catalogo.add_tiposervicio %}
                 <a href="{% url 'crear_servicio' %}" class="btn btn-action">
                     <svg style="width:20px;height:20px; vertical-align:bottom; margin-right:5px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
                     Agregar Servicio
                 </a>
+                {% endif %}
             </div>
 
             <div class="table-container">
@@ -147,40 +169,49 @@
                                 <th style="width: 25%;">Nombre Servicio</th>
                                 <th style="width: 50%;">Descripción</th>
                                 <th style="width: 15%;">Costo Estándar</th>
+                                <!-- Columna acciones condicional -->
+                                {% if perms.catalogo.change_tiposervicio or perms.catalogo.delete_tiposervicio %}
                                 <th style="width: 10%;">Acciones</th>
+                                {% endif %}
                             </tr>
                         </thead>
                         <tbody>
                             {% for s in tipos_servicio %}
                             <tr>
                                 <td>
-                                    <!-- Hacemos el nombre clicable para abrir detalle también -->
                                     <a href="javascript:void(0)" onclick="mostrarDetalle('{{ s.nombre_servicio|escapejs }}', '{{ s.costo_estandar }}', '{{ s.descripcion|default:''|escapejs }}')" style="color:var(--color-primario); font-weight:600; text-decoration:none;">
                                         {{ s.nombre_servicio }}
                                     </a>
                                 </td>
                                 <td>
-                                    <!-- Texto truncado a 60 caracteres -->
                                     {{ s.descripcion|default:"--"|truncatechars:60 }}
-                                    
-                                    <!-- Si la descripción es larga (más de 60 chars), mostramos 'Ver más' -->
                                     {% if s.descripcion|length > 60 %}
                                         <span class="link-ver-mas" onclick="mostrarDetalle('{{ s.nombre_servicio|escapejs }}', '{{ s.costo_estandar }}', '{{ s.descripcion|escapejs }}')">Ver detalle completo</span>
                                     {% endif %}
                                 </td>
                                 <td>${{ s.costo_estandar }}</td>
+                                
+                                {% if perms.catalogo.change_tiposervicio or perms.catalogo.delete_tiposervicio %}
                                 <td class="actions-cell">
+                                    {% if perms.catalogo.change_tiposervicio %}
                                     <a href="{% url 'editar_servicio' s.id %}" class="btn-icon" title="Editar">
                                         <svg style="width:20px;height:20px" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
                                     </a>
+                                    {% endif %}
+                                    
+                                    {% if perms.catalogo.delete_tiposervicio %}
                                     <a href="{% url 'eliminar_servicio' s.id %}" class="btn-icon delete" title="Eliminar">
                                         <svg style="width:20px;height:20px" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
                                     </a>
+                                    {% endif %}
                                 </td>
+                                {% endif %}
                             </tr>
                             {% empty %}
                             <tr>
-                                <td colspan="4" style="text-align:center; padding:2rem; color:#777;">No hay servicios registrados.</td>
+                                <td colspan="{% if perms.catalogo.change_tiposervicio or perms.catalogo.delete_tiposervicio %}4{% else %}3{% endif %}" style="text-align:center; padding:2rem; color:#777;">
+                                    No hay servicios registrados.
+                                </td>
                             </tr>
                             {% endfor %}
                         </tbody>
@@ -191,7 +222,7 @@
 
     </div>
 
-    <!-- MODAL DE DETALLE (NUEVO) -->
+    <!-- MODAL DE DETALLE -->
     <div id="modal-detalle" class="modal-overlay" onclick="cerrarModal(event)">
         <div class="modal-card">
             <button class="modal-close" onclick="cerrarModal(event, true)">&times;</button>
@@ -199,9 +230,7 @@
             <div id="modal-costo" class="modal-cost">$0.00</div>
             
             <label style="font-weight:600; font-size:0.85rem; color:#666; display:block; margin-bottom:0.5rem;">DESCRIPCIÓN COMPLETA:</label>
-            <div id="modal-descripcion" class="modal-desc-box">
-                <!-- El contenido se llena con JS -->
-            </div>
+            <div id="modal-descripcion" class="modal-desc-box"></div>
             
             <div style="margin-top:1.5rem; text-align:right;">
                 <button onclick="cerrarModal(event, true)" class="btn btn-secondary" style="border:1px solid #ccc;">Cerrar</button>
@@ -213,7 +242,6 @@
 
 {% block extra_js %}
 <script>
-    // Función para manejar pestañas
     function openTab(evt, tabName) {
         var tabcontent = document.getElementsByClassName("tab-pane");
         for (var i = 0; i < tabcontent.length; i++) {
@@ -228,13 +256,9 @@
         evt.currentTarget.classList.add("active");
     }
 
-    // --- FUNCIONES DEL MODAL (NUEVO) ---
-    
     function mostrarDetalle(titulo, costo, descripcion) {
-        // Llenar datos
         document.getElementById('modal-titulo').innerText = titulo;
         document.getElementById('modal-costo').innerText = '$' + costo;
-        // Manejar descripción vacía
         if (!descripcion || descripcion === 'None') {
             document.getElementById('modal-descripcion').innerText = "Sin descripción disponible.";
             document.getElementById('modal-descripcion').style.fontStyle = 'italic';
@@ -244,13 +268,10 @@
             document.getElementById('modal-descripcion').style.fontStyle = 'normal';
             document.getElementById('modal-descripcion').style.color = '#444';
         }
-
-        // Mostrar modal (Flex para centrar)
         document.getElementById('modal-detalle').style.display = 'flex';
     }
 
     function cerrarModal(event, force) {
-        // Cerrar solo si se clickea el fondo (overlay) o el botón de cerrar explícitamente
         if (force || event.target.id === 'modal-detalle') {
             document.getElementById('modal-detalle').style.display = 'none';
         }

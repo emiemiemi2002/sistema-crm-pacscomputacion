@@ -175,7 +175,13 @@ def detalle_orden(request, orden_id):
     transferencias = orden.transferencias.all().order_by('-fecha_transferencia')
     servicios_aplicados = orden.servicios.all()
     
-    total_cotizado = sum(c.total for c in cotizaciones if c.aprobada)
+    # CORRECCIÓN: Agregar catálogo de servicios al contexto
+    servicios_catalogo = TipoServicio.objects.all().order_by('nombre_servicio')
+    
+    total_cotizado = sum(
+        c.costo_total for c in cotizaciones 
+        if c.estado == Cotizacion.ESTADO_AUTORIZADA
+    )
     
     if request.method == 'POST' and 'btn_bitacora' in request.POST:
         form = BitacoraForm(request.POST)
@@ -194,6 +200,7 @@ def detalle_orden(request, orden_id):
         'cotizaciones': cotizaciones,
         'transferencias': transferencias,
         'servicios_aplicados': servicios_aplicados,
+        'servicios_catalogo': servicios_catalogo, # Ahora sí disponible
         'total_cotizado': total_cotizado
     }
     return render(request, 'gestion_ordenes/detalle_orden.html', context)
@@ -353,12 +360,13 @@ def crear_cotizacion(request, orden_id):
         if form.is_valid():
             cotizacion = form.save(commit=False)
             cotizacion.orden = orden
-            cotizacion.responsable = request.user
+            cotizacion.usuario_creador = request.user
             cotizacion.save()
             
+            # CORRECCIÓN: Usar .costo_total (propiedad) en lugar de .total
             BitacoraOrden.objects.create(
                 orden=orden, usuario=request.user,
-                descripcion=f"Nueva cotización creada por ${cotizacion.total}"
+                descripcion=f"Nueva cotización creada por ${cotizacion.costo_total}"
             )
             messages.success(request, 'Cotización creada exitosamente.')
             return redirect('detalle_orden', orden_id=orden.id)
@@ -528,5 +536,49 @@ def actualizar_estado_orden(request, orden_id):
             descripcion=f"Cambio de estado: {anterior} -> {nuevo_estado}"
         )
         messages.success(request, f'Estado actualizado a: {nuevo_estado}')
+    
+    return redirect('detalle_orden', orden_id=orden.id)
+
+# --- BITÁCORA ---- 
+@login_required
+@permission_required('gestion_ordenes.change_bitacoraorden', raise_exception=True)
+def editar_bitacora(request, orden_id, entrada_id):
+    """
+    Permite editar una entrada de bitácora existente.
+    """
+    orden = get_object_or_404(OrdenServicio, pk=orden_id)
+    if orden.fecha_cierre:
+        messages.error(request, "No se puede editar la bitácora de una orden cerrada.")
+        return redirect('detalle_orden', orden_id=orden.id)
+
+    entrada = get_object_or_404(BitacoraOrden, pk=entrada_id, orden=orden)
+
+    if request.method == 'POST':
+        nuevo_texto = request.POST.get('descripcion', '').strip()
+        if nuevo_texto:
+            entrada.descripcion = nuevo_texto
+            entrada.save()
+            messages.success(request, 'Nota de bitácora actualizada.')
+        else:
+            messages.warning(request, 'La nota no puede estar vacía.')
+    
+    return redirect('detalle_orden', orden_id=orden.id)
+
+@login_required
+@permission_required('gestion_ordenes.delete_bitacoraorden', raise_exception=True)
+def eliminar_bitacora(request, orden_id, entrada_id):
+    """
+    Elimina una entrada de la bitácora.
+    """
+    orden = get_object_or_404(OrdenServicio, pk=orden_id)
+    if orden.fecha_cierre:
+        messages.error(request, "No se puede eliminar de una orden cerrada.")
+        return redirect('detalle_orden', orden_id=orden.id)
+
+    entrada = get_object_or_404(BitacoraOrden, pk=entrada_id, orden=orden)
+    
+    if request.method == 'POST':
+        entrada.delete()
+        messages.success(request, 'Nota de bitácora eliminada.')
     
     return redirect('detalle_orden', orden_id=orden.id)
