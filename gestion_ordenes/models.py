@@ -200,11 +200,15 @@ class BitacoraOrden(models.Model):
     fecha_hora = models.DateTimeField(auto_now_add=True, verbose_name="Fecha y Hora")
     descripcion = models.TextField()
 
+    # --- CAMPOS DE AUDITORÍA (NUEVOS) ---
+    editado = models.BooleanField(default=False, verbose_name="Editado")
+    fecha_edicion = models.DateTimeField(null=True, blank=True, verbose_name="Fecha de última edición")
+    contenido_original = models.TextField(null=True, blank=True, verbose_name="Contenido original (Pre-ediciones)")
+
     class Meta:
         verbose_name = "Entrada de Bitácora"
         verbose_name_plural = "Bitácora de Órdenes" # Ajustado para claridad
-        ordering = ['-fecha_hora'] # Mostrar las entradas más recientes primero
+        ordering = ['-fecha_hora'] # Mostrar lo más reciente primero (o cronológico según prefieras)
 
     def __str__(self):
-        username = self.usuario.username if self.usuario else "Sistema"
-        return f"Entrada en Orden #{self.orden.id} - {self.fecha_hora.strftime('%Y-%m-%d %H:%M')}"
+        return f"Nota en Orden #{self.orden.id} por {self.usuario}"

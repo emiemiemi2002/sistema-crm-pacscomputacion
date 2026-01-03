@@ -539,12 +539,12 @@ def actualizar_estado_orden(request, orden_id):
     
     return redirect('detalle_orden', orden_id=orden.id)
 
-# --- BITÁCORA ---- 
 @login_required
 @permission_required('gestion_ordenes.change_bitacoraorden', raise_exception=True)
 def editar_bitacora(request, orden_id, entrada_id):
     """
     Permite editar una entrada de bitácora existente.
+    Guarda la versión original si es la primera vez que se edita.
     """
     orden = get_object_or_404(OrdenServicio, pk=orden_id)
     if orden.fecha_cierre:
@@ -555,11 +555,22 @@ def editar_bitacora(request, orden_id, entrada_id):
 
     if request.method == 'POST':
         nuevo_texto = request.POST.get('descripcion', '').strip()
-        if nuevo_texto:
+        
+        # Validar cambio real
+        if nuevo_texto and nuevo_texto != entrada.descripcion:
+            
+            # Si NO estaba editado, guardamos el original
+            if not entrada.editado:
+                entrada.contenido_original = entrada.descripcion
+            
+            # Actualizamos
             entrada.descripcion = nuevo_texto
+            entrada.editado = True
+            entrada.fecha_edicion = timezone.now()
             entrada.save()
+            
             messages.success(request, 'Nota de bitácora actualizada.')
-        else:
+        elif not nuevo_texto:
             messages.warning(request, 'La nota no puede estar vacía.')
     
     return redirect('detalle_orden', orden_id=orden.id)

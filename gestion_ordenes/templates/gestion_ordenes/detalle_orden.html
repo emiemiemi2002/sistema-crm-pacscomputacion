@@ -113,6 +113,11 @@
     .user-name { font-weight: 700; color: #333; }
     .time-ago { font-size: 0.85rem; color: #888; }
 
+    .edited-badge {
+        font-size: 0.75rem; color: #999; font-style: italic; margin-left: 5px;
+        background: #eee; padding: 1px 5px; border-radius: 4px;
+    }
+
     /* Formulario de edición oculto */
     .edit-note-form { display: none; margin-top: 10px; }
     .edit-note-form textarea { width: 100%; padding: 0.8rem; border: 1px solid #ddd; border-radius: 6px; font-family: inherit; margin-bottom: 10px; }
@@ -222,7 +227,7 @@
                 <button class="tab-link" onclick="openTab(event, 'transferencias')"><i class="fas fa-boxes"></i> Transferencias</button>
             </div>
 
-            <!-- PESTAÑA 1: BITÁCORA (MEJORADA) -->
+            <!-- PESTAÑA 1: BITÁCORA -->
             <div id="bitacora" class="tab-content active">
                 <!-- PERMISO: Agregar Nota (Casi todos) -->
                 {% if not es_cerrada and perms.gestion_ordenes.add_bitacoraorden %}
@@ -250,6 +255,9 @@
                                 <div>
                                     <span class="user-name">{{ evento.usuario.username }}</span>
                                     <span class="time-ago">• {{ evento.fecha_hora|date:"d M Y, h:i A" }}</span>
+                                    {% if evento.editado %}
+                                        <span class="edited-badge" title="Editado el {{ evento.fecha_edicion }}">(Editado)</span>
+                                    {% endif %}
                                 </div>
                                 <!-- ACCIONES DE BITÁCORA -->
                                 <div class="action-icons">
