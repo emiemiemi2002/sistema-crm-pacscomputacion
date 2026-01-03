@@ -76,10 +76,14 @@
                     <label for="id_tipo_cotizacion" class="required">Tipo de Cotización</label>
                     {{ form.tipo_cotizacion }}
                 </div>
+                
+                <!-- MEJORA: El estado solo se muestra al editar -->
+                {% if editar %}
                 <div class="form-group">
                     <label for="id_estado">Estado Actual</label>
                     {{ form.estado }}
                 </div>
+                {% endif %}
             </div>
 
             <!-- Concepto Principal -->
@@ -127,7 +131,7 @@
                 </div>
             </div>
 
-            <!-- MEJORA: Campo Notas -->
+            <!-- Campo Notas -->
             <div class="form-group">
                 <label for="id_notas">Notas / Observaciones (Opcional)</label>
                 {{ form.notas }}

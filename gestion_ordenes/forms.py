@@ -19,11 +19,10 @@ class AgregarServicioForm(forms.Form):
         empty_label="-- Selecciona un servicio --"
     )
 
-# --- COTIZACIONES (MEJORADO) ---
+# --- COTIZACIONES (CON LÓGICA DE ESTADOS) ---
 class CotizacionForm(forms.ModelForm):
     class Meta:
         model = Cotizacion
-        # Agregamos 'tipo_cotizacion' y 'notas'
         fields = [
             'concepto', 'tipo_cotizacion', 'proveedor', 
             'fuente_refaccion', 'costo_refacciones', 'costo_mano_obra', 
@@ -42,6 +41,48 @@ class CotizacionForm(forms.ModelForm):
             'proveedor': forms.Select(attrs={'class': 'form-control', 'id': 'id_proveedor'}),
         }
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        
+        # LÓGICA DE ESTADOS
+        if not self.instance.pk:
+            # MODO CREACIÓN:
+            # Eliminamos el campo 'estado' para que el usuario no pueda elegirlo.
+            # Al guardar, el modelo usará su valor por defecto: 'Pendiente'.
+            if 'estado' in self.fields:
+                del self.fields['estado']
+        else:
+            # MODO EDICIÓN:
+            # Filtramos las opciones según el estado actual
+            estado_actual = self.instance.estado
+            opciones_validas = []
+
+            # Mapa de transiciones permitidas
+            # 1. Pendiente -> Puede pasar a Enviada (o quedarse igual)
+            if estado_actual == Cotizacion.ESTADO_PENDIENTE:
+                opciones_validas = [
+                    (Cotizacion.ESTADO_PENDIENTE, 'Pendiente de Enviar'),
+                    (Cotizacion.ESTADO_ENVIADA, 'Enviada al Cliente')
+                ]
+            
+            # 2. Enviada -> Puede ser Autorizada o Rechazada (o corregir a Pendiente si hubo error, opcionalmente)
+            # Aquí seguimos la regla estricta: Solo a Autorizada/Rechazada
+            elif estado_actual == Cotizacion.ESTADO_ENVIADA:
+                opciones_validas = [
+                    (Cotizacion.ESTADO_ENVIADA, 'Enviada al Cliente'),
+                    (Cotizacion.ESTADO_AUTORIZADA, 'Autorizada'),
+                    (Cotizacion.ESTADO_RECHAZADA, 'Rechazada')
+                ]
+            
+            # 3. Estados Finales (Autorizada/Rechazada) -> Normalmente no se mueven, 
+            # pero permitimos ver su estado actual para que el campo no aparezca vacío o roto.
+            else:
+                # Obtenemos la etiqueta legible del modelo
+                label = dict(Cotizacion.ESTADO_COTIZACION).get(estado_actual, estado_actual)
+                opciones_validas = [(estado_actual, label)]
+
+            self.fields['estado'].choices = opciones_validas
+
     def clean(self):
         cleaned_data = super().clean()
         fuente = cleaned_data.get('fuente_refaccion')
@@ -49,14 +90,14 @@ class CotizacionForm(forms.ModelForm):
         costo_ref = cleaned_data.get('costo_refacciones') or 0
         costo_mo = cleaned_data.get('costo_mano_obra') or 0
 
-        # 1. Validación de Proveedor
+        # Validación de Proveedor
         if fuente == 'Pedido a proveedor' and not proveedor:
             self.add_error('proveedor', 'Debe seleccionar un proveedor si el origen es externo.')
         
         if fuente == 'Stock interno':
             cleaned_data['proveedor'] = None
 
-        # 2. Validación de Costos
+        # Validación de Costos
         if costo_ref + costo_mo <= 0:
             msg = "El total de la cotización debe ser mayor a 0."
             self.add_error('costo_refacciones', msg)
