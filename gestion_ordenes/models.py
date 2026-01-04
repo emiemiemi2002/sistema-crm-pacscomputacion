@@ -26,7 +26,7 @@ class OrdenServicio(models.Model):
         (ESTADO_CANCELADA, 'Cancelada'),
     ]
 
-    # Opciones para el campo 'prioridad'
+    # Opciones para Prioridad
     PRIORIDAD_BAJA = 'Baja'
     PRIORIDAD_NORMAL = 'Normal'
     PRIORIDAD_ALTA = 'Alta'
@@ -36,8 +36,7 @@ class OrdenServicio(models.Model):
         (PRIORIDAD_ALTA, 'Alta'),
     ]
 
-    # No es necesario id_orden, Django lo crea automáticamente como 'id' (AutoField PK) que funcionará como folio
-    # on_delete=models.PROTECT: Evita borrar un cliente/equipo si tiene órdenes asociadas.
+    # No es necesario id_orden, Django lo crea automáticamente como 'id' (AutoField PK)
     cliente = models.ForeignKey(Cliente, on_delete=models.PROTECT, related_name="ordenes")
     equipo = models.ForeignKey(Equipo, on_delete=models.PROTECT, related_name="ordenes")
 
@@ -76,13 +75,16 @@ class OrdenServicio(models.Model):
     class Meta:
         verbose_name = "Orden de Servicio"
         verbose_name_plural = "Órdenes de Servicio"
-        ordering = ['-fecha_creacion'] # Mostrar las más recientes primero por defecto
+        ordering = ['-fecha_creacion']
 
     def __str__(self):
-        # Usamos el PK 'id' que Django crea automáticamente como folio
-        return f"Orden #{self.id} - {self.cliente.nombre_completo}"
+        return f"Orden #{self.id} - {self.cliente} ({self.estado})"
 
-# --- Modelos relacionados con OrdenServicio ---
+    def save(self, *args, **kwargs):
+        # MEJORA DE INTEGRIDAD
+        self.contrasena_equipo = self.contrasena_equipo or None
+        super().save(*args, **kwargs)
+
 
 class Cotizacion(models.Model):
     """Almacena las cotizaciones asociadas a una orden de servicio."""
@@ -140,9 +142,15 @@ class Cotizacion(models.Model):
     def __str__(self):
         return f"Cotización #{self.id} para Orden #{self.orden.id} ({self.get_estado_display()})"
 
+    def save(self, *args, **kwargs):
+        # MEJORA DE INTEGRIDAD
+        self.fuente_refaccion = self.fuente_refaccion or None
+        self.notas = self.notas or None
+        super().save(*args, **kwargs)
+
 
 class Transferencia(models.Model):
-    """Modela el movimiento de piezas del almacén general a una orden de servicio."""
+    """Solicitud de transferencia de material desde almacén."""
     # No es necesario id_transferencia, Django lo crea automáticamente como 'id' (AutoField PK)
     orden = models.ForeignKey(OrdenServicio, on_delete=models.CASCADE, related_name="transferencias")
     usuario_solicitante = models.ForeignKey(
@@ -169,11 +177,17 @@ class Transferencia(models.Model):
         ordering = ['-fecha_transferencia']
 
     def __str__(self):
-        return f"Transferencia #{self.id} para Orden #{self.orden.id}"
+        return f"Transferencia #{self.id} - Orden #{self.orden.id}"
+
+    def save(self, *args, **kwargs):
+        # MEJORA DE INTEGRIDAD
+        self.documento_referencia = self.documento_referencia or None
+        self.notas = self.notas or None
+        super().save(*args, **kwargs)
 
 
 class ItemTransferido(models.Model):
-    """Detalla cada uno de los artículos incluidos en una transferencia."""
+    """Detalle de los ítems dentro de una transferencia."""
     # No es necesario id_item, Django lo crea automáticamente como 'id' (AutoField PK)
     transferencia = models.ForeignKey(Transferencia, on_delete=models.CASCADE, related_name="items")
     descripcion_item = models.CharField(max_length=255, verbose_name="Descripción del ítem")
@@ -190,6 +204,12 @@ class ItemTransferido(models.Model):
         if self.numero_serie:
             display += f" (S/N: {self.numero_serie})"
         return display
+
+    def save(self, *args, **kwargs):
+        # MEJORA DE INTEGRIDAD
+        self.modelo = self.modelo or None
+        self.numero_serie = self.numero_serie or None
+        super().save(*args, **kwargs)
 
 
 class BitacoraOrden(models.Model):
@@ -208,7 +228,12 @@ class BitacoraOrden(models.Model):
     class Meta:
         verbose_name = "Entrada de Bitácora"
         verbose_name_plural = "Bitácora de Órdenes" # Ajustado para claridad
-        ordering = ['-fecha_hora'] # Mostrar lo más reciente primero (o cronológico según prefieras)
+        ordering = ['-fecha_hora'] # Mostrar lo más reciente primero 
 
     def __str__(self):
         return f"Nota en Orden #{self.orden.id} por {self.usuario}"
+
+    def save(self, *args, **kwargs):
+        # MEJORA DE INTEGRIDAD
+        self.contenido_original = self.contenido_original or None
+        super().save(*args, **kwargs)

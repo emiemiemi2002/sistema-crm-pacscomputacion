@@ -16,6 +16,13 @@ class Proveedor(models.Model):
     def __str__(self):
         return self.nombre_empresa
 
+    def save(self, *args, **kwargs):
+        # MEJORA DE INTEGRIDAD: Limpiar campos opcionales vacíos a None
+        self.persona_contacto = self.persona_contacto or None
+        self.telefono = self.telefono or None
+        self.email = self.email or None
+        super().save(*args, **kwargs)
+
 
 class TipoServicio(models.Model):
     """Catálogo de los servicios técnicos que ofrece la empresa."""
@@ -31,3 +38,8 @@ class TipoServicio(models.Model):
 
     def __str__(self):
         return self.nombre_servicio
+
+    def save(self, *args, **kwargs):
+        # MEJORA DE INTEGRIDAD: Limpiar campos opcionales vacíos a None
+        self.descripcion = self.descripcion or None
+        super().save(*args, **kwargs)
